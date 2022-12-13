@@ -29,13 +29,20 @@ class App(customtkinter.CTk):
         # ロゴの表示
         self.logo_label = customtkinter.CTkLabel(self.menubar_frame, text="DailyTask", font=customtkinter.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
+        self.logo_label.bind("<1>",self.main_display)
         # メニューボタンの表示
         self.menu_button = [customtkinter.CTkButton(master=self.menubar_frame,text=self.menu_names[i],font=customtkinter.CTkFont(family="メイリオ")) for i in range(len(self.menu_names))]
         self.menu_button[0].configure(command=self.add_task_button)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
-        # 日付フレーム(右上)の表示------------------------------------------------------------------------------------------
+        # 日付フレーム(右上)の表示
+        self.topbar_display()
+        # タスク欄の表示
+        self.task_display()
+
+    # 日付フレーム(右上)を表示するときの処理------------------------------------------------------------------------------------------
+    def topbar_display(self):
         self.topbar_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
         self.topbar_frame.grid(row=0,column=1,padx=20,pady=20,sticky="nsew")
         self.topbar_frame.grid_columnconfigure(1, weight=1)
@@ -53,9 +60,7 @@ class App(customtkinter.CTk):
         , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.next_button_event,state="disabled")
         self.next_button.grid(row=0, column=2, padx=50, pady=10,)
 
-        # タスク欄の表示
-        self.task_display()
-    
+
     # タスク欄を表示するときの処理------------------------------------------------------------------------------------------
     def task_display(self):
         self.main_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
@@ -90,6 +95,18 @@ class App(customtkinter.CTk):
         for i in range(len(self.di)):
             self.task_label[i].grid(row=i+1, column=1, padx=0, pady=5)
     
+    # ロゴを押すと、メイン画面に遷移
+    def main_display(event,self):
+        event.add_frame.grid_forget()
+        event.add_name_frame.grid_forget()
+        event.add_name_label.grid_forget()
+        event.add_name_entry.grid_forget()
+        event.add_ok_button.grid_forget()
+        # 日付フレーム(右上)の表示
+        event.topbar_display()
+        # タスク欄の表示
+        event.task_display()
+
     # イベトン用関数-----------------------------------------------------------------------------------------------
     # 翌日に進むボタン
     def next_button_event(self):
@@ -115,17 +132,21 @@ class App(customtkinter.CTk):
     
     # タスク追加ボタン
     def add_task_button(self):
-        # 追加ウィンドの設定---------------------------------------------------------------------
-        self.add_window = customtkinter.CTkToplevel(self)
-        self.add_window.title("add task")
-        self.add_window.geometry(f"{1100}x{580}")
-        self.add_window.minsize(300, 580)
+        # 不必要なフレームを削除
+        self.topbar_frame.grid_forget()
+        self.main_frame.grid_forget()
+
+        # 追加フレームの表示---------------------------------------------------------------------
+        self.add_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
+        self.add_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
+        self.add_frame.grid_columnconfigure(1, weight=1)
+        self.add_frame.grid_columnconfigure((0,2), weight=0)
 
         # グリッドの設定(2×2)
-        self.add_window.grid_rowconfigure((0,1), weight=1)
-        self.add_window.grid_columnconfigure((0,1), weight=1)
+        self.add_frame.grid_rowconfigure((0,1), weight=1)
+        self.add_frame.grid_columnconfigure((0,1), weight=1)
         # タスク名入力を促すフレーム
-        self.add_name_frame = customtkinter.CTkFrame(self.add_window, height=140, corner_radius=0)
+        self.add_name_frame = customtkinter.CTkFrame(self.add_frame, height=140, corner_radius=0)
         self.add_name_frame.grid(row=0,column=0,columnspan=2,padx=50,pady=50,sticky="nsew")
         self.add_name_frame.grid_rowconfigure((0,1), weight=1)
         self.add_name_frame.grid_columnconfigure((0,1), weight=1)
@@ -134,9 +155,8 @@ class App(customtkinter.CTk):
         self.add_name_entry = customtkinter.CTkEntry(self.add_name_frame,font=customtkinter.CTkFont(family="メイリオ",size=25),width=300)
         self.add_name_entry.grid(row=0, column=1,rowspan=2)
         # 追加確定ボタン
-        self.add_ok_button = customtkinter.CTkButton(self.add_window,text="追加", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.add_ok_event)
+        self.add_ok_button = customtkinter.CTkButton(self.add_frame,text="追加", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.add_ok_event)
         self.add_ok_button.grid(row=1, column=1,)
-        self.iconify()
 
     # 追加確定ボタンを押したときの処理(ファイル書き込み)
     def add_ok_event(self):
@@ -152,10 +172,14 @@ class App(customtkinter.CTk):
                 writer = csv.writer(f)
                 writer.writerow([task_name])
         subprocess.check_call(["attrib", "+H", path])
-        self.add_window.withdraw()
-        # タスク欄の更新
+        # 画面遷移
+        self.add_frame.grid_forget()
+        self.add_name_frame.grid_forget()
+        self.add_name_label.grid_forget()
+        self.add_name_entry.grid_forget()
+        self.add_ok_button.grid_forget()
+        self.topbar_display()
         self.task_display()
-        self.deiconify()
     
     # task.csvを読み込む処理
     def read_task(self):
