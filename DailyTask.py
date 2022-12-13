@@ -18,20 +18,18 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure(1, weight=1)
 
          # メニューバー(左)の表示------------------------------------------------------------------------------------------
-        menu_names = ["追加","絞り込み","一覧","修正","管理",]
+        self.menu_names = ["追加","絞り込み","一覧","修正","管理",]
         self.menubar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.menubar_frame.grid(row=0,column=0,rowspan=2,sticky="nsew")
-        for i in range(len(menu_names)+1):
+        for i in range(len(self.menu_names)+1):
             self.menubar_frame.grid_rowconfigure(i, weight=1)
         # ロゴの表示
         self.logo_label = customtkinter.CTkLabel(self.menubar_frame, text="DailyTask", font=customtkinter.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
         # メニューボタンの表示
-        self.menu_button = []
-        for i in range(len(menu_names)):
-            self.menu_button.append(customtkinter.CTkButton(master=self.menubar_frame,text=menu_names[i]))
+        self.menu_button = [customtkinter.CTkButton(master=self.menubar_frame,text=self.menu_names[i],font=customtkinter.CTkFont(family="メイリオ")) for i in range(len(self.menu_names))]
         self.menu_button[0].configure(command=self.add_task_button)
-        for i in range(len(menu_names)):
+        for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
         # 日付フレーム(右上)の表示------------------------------------------------------------------------------------------
@@ -56,8 +54,8 @@ class App(customtkinter.CTk):
         self.main_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
         self.main_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
         # 今は仮の辞書型を参照
-        di = {"課題":True,"例題":False,"ジム":True,"体操":False,"体操1":False,"体操2":False}
-        for i in range(len(di)+1):
+        self.di = {"課題":True,"例題":False,"ジム":True,"体操":False,"体操1":False,"体操2":False}
+        for i in range(len(self.di)+1):
             self.main_frame.grid_rowconfigure(i, weight=1)
         # 項目名の表示
         item_names = ["達成　　　","タスク名"]
@@ -71,42 +69,42 @@ class App(customtkinter.CTk):
             self.item_label[i].grid(row=0, column=i, padx=0, pady=5)
 
         # チェックボックスの表示
-        self.task_checkbox = []
-        for _ in range(len(di)):
-            self.task_checkbox.append(customtkinter.CTkCheckBox(master=self.main_frame,text="",))
-        for i,key in enumerate(di):
+        self.task_checkbox = [customtkinter.CTkCheckBox(master=self.main_frame,text="",) for _ in range(len(self.di))]
+        for i,key in enumerate(self.di):
             self.task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
-            if di[key]:
+            if self.di[key]:
                 self.task_checkbox[i].select()
         # タスク名の表示
         self.task_label = [customtkinter.CTkLabel(
             self.main_frame
             , text=name
             , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
-            for name in di]
-        for i in range(len(di)):
+            for name in self.di]
+        for i in range(len(self.di)):
             self.task_label[i].grid(row=i+1, column=1, padx=0, pady=5)       
     
     # イベトン用関数-----------------------------------------------------------------------------------------------
     # 翌日に進むボタン
     def next_button_event(self):
         self.dt_now += datetime.timedelta(days=1)
-        self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
-        , font=customtkinter.CTkFont(size=30, weight="bold"))
-        self.today_label.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
-        if self.dt_now.strftime('%Y/%m/%d') == datetime.datetime.now().strftime('%Y/%m/%d'):
-            self.next_button.configure(state="disabled")
-        else:
-            self.next_button.configure(state="normal")
+        self.daily_func()
 
     # 前日に戻るボタン
     def prev_button_event(self):
-        self.next_button
         self.dt_now -= datetime.timedelta(days=1)
-        self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
-        , font=customtkinter.CTkFont(size=30, weight="bold"))
-        self.today_label.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
-        self.next_button.configure(state="normal")
+        self.daily_func()
+    
+    # 日数変更時の表示更新
+    def daily_func(self):
+        self.today_label.configure(text=self.dt_now.strftime('%Y/%m/%d'))
+        if self.dt_now.strftime('%Y/%m/%d') == datetime.datetime.now().strftime('%Y/%m/%d'):
+            self.next_button.configure(state="disabled")
+            for i in range(len(self.task_checkbox)):
+                self.task_checkbox[i].configure(state="normal")
+        else:
+            self.next_button.configure(state="normal")
+            for i in range(len(self.task_checkbox)):
+                self.task_checkbox[i].configure(state="disabled")
     
     # タスク追加ボタン
     def add_task_button(self):
