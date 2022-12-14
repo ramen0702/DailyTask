@@ -139,8 +139,8 @@ class App(customtkinter.CTk):
             # 記録されてなかったら、taskの記録日と現在表示中の日付を比べ、格納すべきか判断
             # すべきならFalseで初期化
             except:
-                read_date = di[key].split("/")
-                read_date = datetime.date(int(read_date[0]),int(read_date[1]),int(read_date[2]))
+                read_date = list(map(int,di[key].split("/")))
+                read_date = datetime.date(read_date[0],read_date[1],read_date[2])
                 if read_date <= self.dt_now.date():
                     today_di[key] = False
         return today_di
