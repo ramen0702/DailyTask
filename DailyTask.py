@@ -4,6 +4,7 @@ import datetime
 import csv
 import os
 import subprocess
+import json
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -21,7 +22,7 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure(1, weight=1)
 
          # メニューバー(左)の表示------------------------------------------------------------------------------------------
-        self.menu_names = ["追加","絞り込み","一覧","修正","管理",]
+        self.menu_names = ["追加","絞り込み","一覧","読み込み","書き込み",]
         self.menubar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.menubar_frame.grid(row=0,column=0,rowspan=2,sticky="nsew")
         for i in range(len(self.menu_names)+1):
@@ -33,8 +34,12 @@ class App(customtkinter.CTk):
         # メニューボタンの表示
         self.menu_button = [customtkinter.CTkButton(master=self.menubar_frame,text=self.menu_names[i],font=customtkinter.CTkFont(family="メイリオ")) for i in range(len(self.menu_names))]
         self.menu_button[0].configure(command=self.add_task_button)
+        self.menu_button[3].configure(command=self.read_daily)
+        self.menu_button[4].configure(command=self.write_daily)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
+
+        self.read_daily()
 
         # 日付フレーム(右上)の表示
         self.topbar_display()
@@ -66,8 +71,8 @@ class App(customtkinter.CTk):
         self.main_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
         self.main_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
         # タスク名をtask.csvから参照(型は辞書型でValueはすべてFalse)
-        self.di = self.read_task()
-        for i in range(len(self.di)+1):
+        self.task_di = self.read_task()
+        for i in range(len(self.task_di)+1):
             self.main_frame.grid_rowconfigure(i, weight=1)
         # 項目名の表示
         item_names = ["達成　　　","タスク名"]
@@ -81,20 +86,40 @@ class App(customtkinter.CTk):
             self.item_label[i].grid(row=0, column=i, padx=0, pady=5)
 
         # チェックボックスの表示
-        self.task_checkbox = [customtkinter.CTkCheckBox(master=self.main_frame,text="",) for _ in range(len(self.di))]
-        for i,key in enumerate(self.di):
+        self.task_checkbox = [customtkinter.CTkCheckBox(master=self.main_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.task_di))]
+        for i,key in enumerate(self.task_di):
             self.task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
-            if self.di[key]:
+            if self.task_di[key]:
                 self.task_checkbox[i].select()
         # タスク名の表示
         self.task_label = [customtkinter.CTkLabel(
             self.main_frame
             , text=name
             , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
-            for name in self.di]
-        for i in range(len(self.di)):
+            for name in self.task_di]
+        for i in range(len(self.task_di)):
             self.task_label[i].grid(row=i+1, column=1, padx=0, pady=5)
     
+    # task.csvを読み込む処理
+    def read_task(self):
+        path = "task.csv"
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        di = {}
+        try:
+            with open(path) as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    try:
+                        if self.daily_di[self.dt_now.strftime('%Y/%m/%d')][row[0]]:
+                            di[row[0]] = True
+                        else:    
+                            di[row[0]] = False
+                    except:
+                        di[row[0]] = False
+        except:
+            print("エラー")
+        return di
+
     # ロゴを押すと、メイン画面に遷移
     def main_display(event,self):
         event.add_frame.grid_forget()
@@ -121,6 +146,7 @@ class App(customtkinter.CTk):
     # 日数変更時の表示更新
     def daily_func(self):
         self.today_label.configure(text=self.dt_now.strftime('%Y/%m/%d'))
+        self.task_display()
         if self.dt_now.strftime('%Y/%m/%d') == datetime.datetime.now().strftime('%Y/%m/%d'):
             self.next_button.configure(state="disabled")
             for i in range(len(self.task_checkbox)):
@@ -180,21 +206,34 @@ class App(customtkinter.CTk):
         self.add_ok_button.grid_forget()
         self.topbar_display()
         self.task_display()
-    
-    # task.csvを読み込む処理
-    def read_task(self):
-        path = "task.csv"
+
+    def read_daily(self):
+        path = "daily.json"
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
-        di = {}
         try:
             with open(path) as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    di[row[0]] = False
+                self.daily_di = json.load(f)
         except:
+            self.daily_di = {}
             print("エラー")
-        return di
 
+    def write_daily(self):
+        di = {self.dt_now.strftime('%Y/%m/%d'):self.task_di}
+        print(di)
+        path = "daily.json"
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        with open(path, 'w') as f:
+            json.dump(di, f, indent=4, ensure_ascii=False)
+
+    def task_checkbox_event(self):
+        for i,state in enumerate(self.task_checkbox):
+            if state.get() == 1:
+                self.task_di[self.task_label[i].cget("text")] = True
+                self.daily_di[self.dt_now.strftime('%Y/%m/%d')][self.task_label[i].cget("text")] = True
+            else:
+                self.task_di[self.task_label[i].cget("text")] = False
+                self.daily_di[self.dt_now.strftime('%Y/%m/%d')][self.task_label[i].cget("text")] = False
+        self.write_daily()
 
 if __name__ == "__main__":
     app = App()
