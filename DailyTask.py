@@ -19,12 +19,16 @@ class App(customtkinter.CTk):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
+        # 画面状態を記憶する変数
+        # 1:メイン,2:追加,3:削除
+        self.screen_id = 1
+
         # メニューバー(左)の表示------------------------------------------------------------------------------------------
         # レイアウトの設定
-        self.menu_names = ["追加","絞り込み","一覧","読み込み","書き込み",]
+        self.menu_names = ["追加","削除","グラフ"]
         self.menubar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.menubar_frame.grid(row=0,column=0,rowspan=2,sticky="nsew")
-        for i in range(len(self.menu_names)+1):
+        for i in range(len(self.menu_names)+5):
             self.menubar_frame.grid_rowconfigure(i, weight=1)
         # ロゴの表示(ロゴを押すとメイン画面へ遷移)
         self.logo_label = customtkinter.CTkLabel(self.menubar_frame, text="DailyTask", font=customtkinter.CTkFont(size=20, weight="bold"))
@@ -34,10 +38,8 @@ class App(customtkinter.CTk):
         self.menu_button = [customtkinter.CTkButton(master=self.menubar_frame,text=self.menu_names[i],font=customtkinter.CTkFont(family="メイリオ")) for i in range(len(self.menu_names))]
         # 追加ボタン
         self.menu_button[0].configure(command=self.add_task_button)
-        # 読み込みボタン(デバッグ用)
-        self.menu_button[3].configure(command=self.read_daily)
-        # 書き込みボタン(デバッグ用)
-        self.menu_button[4].configure(command=self.write_daily)
+        # 削除ボタン
+        self.menu_button[1].configure(command=self.remove_task_button)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
@@ -147,16 +149,32 @@ class App(customtkinter.CTk):
 
     # メイン画面へ遷移する関数--------------------------------------------------------------------------------
     def display_main(event,self):
-        # 不必要なフレームの削除
-        event.add_frame.grid_forget()
-        event.add_name_frame.grid_forget()
-        event.add_name_label.grid_forget()
-        event.add_name_entry.grid_forget()
-        event.add_ok_button.grid_forget()
-        # 日付フレーム(右上)の表示
-        event.display_topbar()
-        # タスク欄の表示
-        event.display_taskbar()
+        if event.screen_id == 2:
+            # 不必要なフレームの削除
+            event.add_frame.grid_forget()
+            event.add_name_frame.grid_forget()
+            event.add_name_label.grid_forget()
+            event.add_name_entry.grid_forget()
+            event.add_ok_button.grid_forget()
+            # 日付フレーム(右上)の表示
+            event.display_topbar()
+            # タスク欄の表示
+            event.display_taskbar()
+        elif event.screen_id == 3:
+            # 不要なフレームの削除
+            event.remove_frame.grid_forget()
+            for i in range(2):
+                event.remove_item_label[i].grid_forget()
+            for i in range(len(event.today_date_task)):
+                event.remove_task_checkbox[i].grid_forget()
+                event.remove_task_label[i].grid_forget()
+            event.remove_ok_button.grid_forget()
+            # 日付フレーム(右上)の表示
+            event.display_topbar()
+            # タスク欄の表示
+            event.display_taskbar()
+        # 画面状態を更新
+        event.screen_id = 1
 
     # チェックボックスを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def task_checkbox_event(self):
@@ -223,8 +241,35 @@ class App(customtkinter.CTk):
     # タスク追加ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
     def add_task_button(self):
         # 不必要なフレームを削除
-        self.topbar_frame.grid_forget()
-        self.main_frame.grid_forget()
+        if self.screen_id == 1:
+            self.topbar_frame.grid_forget()
+            self.today_label.grid_forget()
+            self.prev_button.grid_forget()
+            self.next_button.grid_forget()
+            self.main_frame.grid_forget()
+            for i in range(2):
+                self.item_label[i].grid_forget()
+            for i in range(len(self.now_date_task_di)):
+                self.task_checkbox[i].grid_forget()
+                self.task_label[i].grid_forget()
+        elif self.screen_id == 2:
+            # 不必要なフレームの削除
+            self.add_frame.grid_forget()
+            self.add_name_frame.grid_forget()
+            self.add_name_label.grid_forget()
+            self.add_name_entry.grid_forget()
+            self.add_ok_button.grid_forget()
+        elif self.screen_id == 3:
+            # 不要なフレームの削除
+            self.remove_frame.grid_forget()
+            for i in range(2):
+                self.remove_item_label[i].grid_forget()
+            for i in range(len(self.today_date_task)):
+                self.remove_task_checkbox[i].grid_forget()
+                self.remove_task_label[i].grid_forget()
+            self.remove_ok_button.grid_forget()
+        # 画面状態を更新
+        self.screen_id = 2
         # レイアウトの設定
         self.add_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
         self.add_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
@@ -268,6 +313,117 @@ class App(customtkinter.CTk):
         self.add_name_label.grid_forget()
         self.add_name_entry.grid_forget()
         self.add_ok_button.grid_forget()
+        # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
+        self.display_topbar()
+        self.display_taskbar()
+    
+    # タスク削除ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
+    def remove_task_button(self):
+        # 不必要なフレームを削除
+        if self.screen_id == 1:
+            self.topbar_frame.grid_forget()
+            self.today_label.grid_forget()
+            self.prev_button.grid_forget()
+            self.next_button.grid_forget()
+            self.main_frame.grid_forget()
+            for i in range(2):
+                self.item_label[i].grid_forget()
+            for i in range(len(self.now_date_task_di)):
+                self.task_checkbox[i].grid_forget()
+                self.task_label[i].grid_forget()
+        elif self.screen_id == 2:
+            # 不必要なフレームの削除
+            self.add_frame.grid_forget()
+            self.add_name_frame.grid_forget()
+            self.add_name_label.grid_forget()
+            self.add_name_entry.grid_forget()
+            self.add_ok_button.grid_forget()
+        elif self.screen_id == 3:
+            # 不要なフレームの削除
+            self.remove_frame.grid_forget()
+            for i in range(2):
+                self.remove_item_label[i].grid_forget()
+            for i in range(len(self.today_date_task)):
+                self.remove_task_checkbox[i].grid_forget()
+                self.remove_task_label[i].grid_forget()
+            self.remove_ok_button.grid_forget()
+        # 画面状態を更新
+        self.screen_id = 3
+        # レイアウトの設定
+        self.remove_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
+        self.remove_frame.grid(row=0,column=1,rowspan = 2,padx=20,pady=20,sticky="nsew")
+        # task.jsonからタスク名を参照し、today_date_taskにリストとして記録
+        path = "task.json"
+        # 作業ディレクトリをこのファイル直下に設定
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        di = {}
+        try:
+            with open(path) as f:
+                di = json.load(f)
+        except:
+            print("エラー")
+        self.today_date_task = []
+        for name in di:
+            self.today_date_task.append(name)
+        for i in range(len(self.today_date_task)+2):
+            self.remove_frame.grid_rowconfigure(i, weight=1)
+        # 項目名の表示
+        item_names = ["削除項目　　　","タスク名"]
+        self.remove_item_label = [customtkinter.CTkLabel(
+            self.remove_frame
+            , text=name
+            , font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"))
+            for name in item_names]
+        for i in range(len(item_names)):
+            self.remove_frame.grid_columnconfigure(i, weight=1)
+            self.remove_item_label[i].grid(row=0, column=i, padx=0, pady=5)
+        # チェックボックスの表示
+        self.remove_task_checkbox = [customtkinter.CTkCheckBox(master=self.remove_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.today_date_task))]
+        for i in range(len(self.today_date_task)):
+            self.remove_task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
+        # タスク名の表示
+        self.remove_task_label = [customtkinter.CTkLabel(
+            self.remove_frame
+            , text=name
+            , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
+            for name in self.today_date_task]
+        for i in range(len(self.today_date_task)):
+            self.remove_task_label[i].grid(row=i+1, column=1, padx=0, pady=5)
+        self.remove_ok_button = customtkinter.CTkButton(self.remove_frame,text="削除", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.remove_ok_event)
+        self.remove_ok_button.grid(row = len(self.today_date_task)+1,column=1)
+    
+    # 削除確定ボタンを押したとき用の関数--------------------------------------------------------------------------------------------------------
+    def remove_ok_event(self):
+        # 最初にすべてのtask.jsonを読み,new_diに入れる
+        path = "task.json"
+        # 作業ディレクトリをこのファイル直下に設定
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        new_di = {}
+        try:
+            with open(path) as f:
+                new_di = json.load(f)
+        except:
+            print("エラー")
+        # チェックが入れられたタスク名はremove_listというリストに格納される
+        remove_list = []
+        for i in range(len(self.remove_task_checkbox)):
+            if self.remove_task_checkbox[i].get() == 1:
+                remove_list.append(self.remove_task_label[i].cget("text"))
+        # remove_listに入っているタスクをnew_diから削除
+        for s in remove_list:
+            new_di.pop(s)
+        # 残ったnew_diをすべてtask.jsonへ書き込み
+        with open(path, 'w') as f:
+            json.dump(new_di, f, indent=4, ensure_ascii=False)
+        # 画面遷移
+        # タスク削除画面のフレームをすべて削除
+        self.remove_frame.grid_forget()
+        for i in range(2):
+            self.remove_item_label[i].grid_forget()
+        for i in range(len(self.today_date_task)):
+            self.remove_task_checkbox[i].grid_forget()
+            self.remove_task_label[i].grid_forget()
+        self.remove_ok_button.grid_forget()
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
         self.display_topbar()
         self.display_taskbar()
