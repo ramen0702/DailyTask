@@ -43,6 +43,10 @@ class App(customtkinter.CTk):
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
+        # ダークモードとライトモードの選択メニュー
+        self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(self.menubar_frame, values=["System" ,"Light", "Dark"],command=self.change_appearance_mode_event)
+        self.appearance_mode_optionemenu.grid(row=7, column=0, padx=20, pady=(10, 10))
+
         # daily.jsonを読む
         self.read_daily()
 
@@ -51,6 +55,11 @@ class App(customtkinter.CTk):
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
     
+    # ダークモードとライトモードを切り替える関数
+    def change_appearance_mode_event(self, new_appearance_mode: str):
+        customtkinter.set_appearance_mode(new_appearance_mode)
+
+
     # daily.jsonを読み込む関数------------------------------------------------------------------------------------------
     def read_daily(self):
         path = "daily.json"
