@@ -94,7 +94,7 @@ class App(customtkinter.CTk):
         self.topbar_frame.grid_columnconfigure(1, weight=1)
         self.topbar_frame.grid_columnconfigure((0,2), weight=0)
         # 本日の日付を表示
-        # 本日の日付はself.dt_nowに格納される(datetime型)
+        # 表示する日付(可変)はself.dt_nowに格納される(datetime型)
         self.dt_now = datetime.datetime.now()
         self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
         , font=customtkinter.CTkFont(size=30, weight="bold"))
@@ -165,6 +165,7 @@ class App(customtkinter.CTk):
         # 格納されて無ければ、Falseで初期化
         # daily_diにも追加し、daily.jsonに書き込む
         else:
+            print(di)
             self.daily_di[self.dt_now.strftime('%Y/%m/%d')] = {}
             for key in di:
                 self.now_date_task_di[key] = False
@@ -333,6 +334,12 @@ class App(customtkinter.CTk):
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
         with open(path, 'w') as f:
             json.dump(new_di, f, indent=4, ensure_ascii=False)
+        # daily_diにもtask名とfalseを格納
+        if datetime.datetime.now().strftime('%Y/%m/%d') not in self.daily_di:
+            self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')] = {}
+        self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')][task_name] = False
+        # 新しいdaily_diをdaily.jsonに更新
+        self.write_daily()
         # 画面遷移
         # タスク追加画面をフレームをすべて削除
         self.add_frame.grid_forget()
