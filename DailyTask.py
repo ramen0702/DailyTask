@@ -50,11 +50,14 @@ class App(customtkinter.CTk):
         # daily.jsonを読む
         self.read_daily()
 
+        # 開始日をdaily.jsonから読み、それ以前の日にちには遷移させない
+        self.check_first_date()
+
         # 日付フレーム(右上)の表示
         self.display_topbar()
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
-    
+
     # ダークモードとライトモードを切り替える関数
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -72,6 +75,16 @@ class App(customtkinter.CTk):
                 self.daily_di = json.load(f)
         except:
             print("エラー")
+    
+    # 開始日をdaily.jsonから読む関数------------------------------------------------------------------------------------------
+    def check_first_date(self):
+        date = []
+        for key in self.daily_di:
+            date.append(key)
+        if len(date) >= 1:
+            self.min_date = min(date)
+        else:
+            self.min_date = datetime.datetime.now().strftime('%Y/%m/%d')
     
     # 日付フレーム(右上)を表示する関数------------------------------------------------------------------------------------------
     def display_topbar(self):
@@ -93,7 +106,9 @@ class App(customtkinter.CTk):
         self.next_button = customtkinter.CTkButton(self.topbar_frame, text="▶"
         , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.next_button_event,state="disabled")
         self.next_button.grid(row=0, column=2, padx=50, pady=10,)
-
+        # もし更新後の表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
+        if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
+            self.prev_button.configure(state="disabled")
 
     # タスクフレーム(右,右下)を表示する関数------------------------------------------------------------------------------------------
     def display_taskbar(self):
@@ -102,7 +117,7 @@ class App(customtkinter.CTk):
         self.main_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
         # 現在開いている日付の、タスク名と真偽値をtask.jsonから参照し、
         # now_date_task_diに辞書型として記録
-        self.now_date_task_di = self.read_task()
+        self.read_task()
         for i in range(len(self.now_date_task_di)+1):
             self.main_frame.grid_rowconfigure(i, weight=1)
         # 項目名の表示
@@ -131,8 +146,9 @@ class App(customtkinter.CTk):
         for i in range(len(self.now_date_task_di)):
             self.task_label[i].grid(row=i+1, column=1, padx=0, pady=5)
     
-    # task.jsonを読み込み、表示中の日付のtask名と真偽値を返す関数------------------------------------------------------------------------------------------
+    # task.jsonを読み込み、表示中の日付のtask名と真偽値をself.now_date_task_diに格納する関数------------------------------------------------------------------------------------------
     def read_task(self):
+        # task.jsonを読み込み
         path = "task.json"
         # 作業ディレクトリをこのファイル直下に設定
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -142,19 +158,18 @@ class App(customtkinter.CTk):
                 di = json.load(f)
         except:
             print("エラー")
-        today_di = {}
-        for key in di:
-            # もしすでに、現在表示中の日付の真偽値がdaily_diに記録されていたらそのまま格納
-            try:
-                today_di[key] = self.daily_di[self.dt_now.strftime('%Y/%m/%d')][key]
-            # 記録されてなかったら、taskの記録日と現在表示中の日付を比べ、格納すべきか判断
-            # すべきならFalseで初期化
-            except:
-                read_date = list(map(int,di[key].split("/")))
-                read_date = datetime.date(read_date[0],read_date[1],read_date[2])
-                if read_date <= self.dt_now.date():
-                    today_di[key] = False
-        return today_di
+        self.now_date_task_di = {}
+        # 表示中の日にちがdaily_di(daily.json)に格納されていれば参照
+        if self.dt_now.strftime('%Y/%m/%d') in self.daily_di:
+            self.now_date_task_di = self.daily_di[self.dt_now.strftime('%Y/%m/%d')]
+        # 格納されて無ければ、Falseで初期化
+        # daily_diにも追加し、daily.jsonに書き込む
+        else:
+            self.daily_di[self.dt_now.strftime('%Y/%m/%d')] = {}
+            for key in di:
+                self.now_date_task_di[key] = False
+                self.daily_di[self.dt_now.strftime('%Y/%m/%d')][key] = False
+            self.write_daily()
 
     # メイン画面へ遷移する関数--------------------------------------------------------------------------------
     def display_main(event,self):
@@ -246,6 +261,9 @@ class App(customtkinter.CTk):
             self.next_button.configure(state="normal")
             for i in range(len(self.task_checkbox)):
                 self.task_checkbox[i].configure(state="disabled")
+        # もし更新後の表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
+        if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
+            self.prev_button.configure(state="disabled")
     
     # タスク追加ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
     def add_task_button(self):
@@ -421,6 +439,8 @@ class App(customtkinter.CTk):
         # remove_listに入っているタスクをnew_diから削除
         for s in remove_list:
             new_di.pop(s)
+            if datetime.datetime.now().strftime('%Y/%m/%d') in self.daily_di:
+                self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')].pop(s)
         # 残ったnew_diをすべてtask.jsonへ書き込み
         with open(path, 'w') as f:
             json.dump(new_di, f, indent=4, ensure_ascii=False)
