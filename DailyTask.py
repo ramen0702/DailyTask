@@ -4,7 +4,7 @@ import datetime
 import os
 import json
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -436,8 +436,6 @@ class App(customtkinter.CTk):
         self.ax.set_ylim(0, 100)
         # matplotlibの描画領域とウィジェット(Frame)の関連付け
         self.fig_canvas = FigureCanvasTkAgg(fig, self.graph_frame)
-        # matplotlibのツールバーを作成
-        self.toolbar = NavigationToolbar2Tk(self.fig_canvas, self.graph_frame)
         # matplotlibのグラフをフレームに配置
         self.fig_canvas.get_tk_widget().pack(fill=customtkinter.BOTH, expand=True)
         # daily.jsonを読み込んdaily_diへ
