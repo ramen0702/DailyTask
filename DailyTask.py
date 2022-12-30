@@ -3,6 +3,8 @@ import tkinter
 import datetime
 import os
 import json
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -40,6 +42,8 @@ class App(customtkinter.CTk):
         self.menu_button[0].configure(command=self.add_task_button)
         # 削除ボタン
         self.menu_button[1].configure(command=self.remove_task_button)
+        # グラフボタン
+        self.menu_button[2].configure(command=self.display_graph_button)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
@@ -209,6 +213,8 @@ class App(customtkinter.CTk):
                 self.remove_task_checkbox[i].grid_forget()
                 self.remove_task_label[i].grid_forget()
             self.remove_ok_button.grid_forget()
+        elif self.screen_id == 4:
+            self.graph_frame.grid_forget()
 
     # チェックボックスを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def task_checkbox_event(self):
@@ -402,6 +408,55 @@ class App(customtkinter.CTk):
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
         self.display_topbar()
         self.display_taskbar()
+
+    # グラフボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
+    def display_graph_button(self):
+        # 不要なフレームを削除
+        self.remove_gird()
+        # 画面状態を更新
+        self.screen_id = 4
+        # matplotlib配置用フレーム
+        self.graph_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
+        self.graph_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
+        # matplotlibの描画領域の作成
+        fig = Figure(facecolor="0.2", edgecolor="white")
+        # 座標軸の作成
+        self.ax = fig.add_subplot(111)
+        self.ax.set_facecolor("0.2")
+        self.ax.spines['bottom'].set_color('white')
+        self.ax.spines['top'].set_color('white')
+        self.ax.spines['left'].set_color('white')
+        self.ax.spines['right'].set_color('white')
+        self.ax.tick_params(axis='x', colors='white')
+        self.ax.tick_params(axis='y', colors='white')
+        self.ax.xaxis.label.set_color('white')
+        self.ax.yaxis.label.set_color('white')
+        self.ax.set_xlabel("日付", fontname="MS Gothic")
+        self.ax.set_ylabel("達成率(%)", fontname="MS Gothic")
+        self.ax.set_ylim(0, 100)
+        # matplotlibの描画領域とウィジェット(Frame)の関連付け
+        self.fig_canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+        # matplotlibのツールバーを作成
+        self.toolbar = NavigationToolbar2Tk(self.fig_canvas, self.graph_frame)
+        # matplotlibのグラフをフレームに配置
+        self.fig_canvas.get_tk_widget().pack(fill=customtkinter.BOTH, expand=True)
+        # daily.jsonを読み込んdaily_diへ
+        self.sort_date = sorted(self.daily_di)
+        y = []
+        x = []
+        for date in self.sort_date:
+            x.append(date)
+            date_count = len(self.daily_di[date])
+            ok_count = 0
+            for name in self.daily_di[date]:
+                if self.daily_di[date][name]:
+                    ok_count += 1
+            percent = ok_count / date_count * 100
+            y.append(percent)
+        # グラフの描画
+        self.ax.plot(x, y, marker='o')
+        for i, value in enumerate(y):
+            self.ax.text(x[i], y[i]+3, round(value, 2),color='white')
 
 if __name__ == "__main__":
     app = App()
