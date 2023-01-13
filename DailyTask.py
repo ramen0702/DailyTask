@@ -3,6 +3,8 @@ import tkinter
 import datetime
 import os
 import json
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -40,6 +42,8 @@ class App(customtkinter.CTk):
         self.menu_button[0].configure(command=self.add_task_button)
         # 削除ボタン
         self.menu_button[1].configure(command=self.remove_task_button)
+        # グラフボタン
+        self.menu_button[2].configure(command=self.display_graph_button)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
@@ -57,6 +61,7 @@ class App(customtkinter.CTk):
         self.display_topbar()
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
+        
 
     # ダークモードとライトモードを切り替える関数------------------------------------------------------------------------------------------
     def change_appearance_mode_event(self, new_appearance_mode: str):
@@ -113,13 +118,20 @@ class App(customtkinter.CTk):
     # タスクフレーム(右,右下)を表示する関数------------------------------------------------------------------------------------------
     def display_taskbar(self):
         # レイアウトの設定
-        self.main_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
-        self.main_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
+        # tmp_frameにcanvasとscrollbarが配置され、canvasにmain_frameの内容を表示する
+        # scrollbarはcanvasを動かし、同時にmain_frameもスライドする
+        self.tmp_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
+        self.tmp_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
+        self.tmp_frame.grid_columnconfigure(0,weight=1)
+        self.tmp_frame.grid_rowconfigure(0,weight=1)
+        self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray17", highlightthickness=0)
+        self.main_canvas.grid(row=0,column=0,sticky="nsew")
+        self.main_canvas.grid_columnconfigure(0,weight=1)
+        self.main_canvas.grid_rowconfigure(0,weight=1)
+        self.main_frame = customtkinter.CTkFrame(self.main_canvas,corner_radius=0)
         # 現在開いている日付の、タスク名と真偽値をtask.jsonから参照し、
         # now_date_task_diに辞書型として記録
         self.read_task()
-        for i in range(len(self.now_date_task_di)+1):
-            self.main_frame.grid_rowconfigure(i, weight=1)
         # 項目名の表示
         item_names = ["達成　　　","タスク名"]
         self.item_label = [customtkinter.CTkLabel(
@@ -144,8 +156,20 @@ class App(customtkinter.CTk):
             , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
             for name in self.now_date_task_di]
         for i in range(len(self.now_date_task_di)):
-            self.task_label[i].grid(row=i+1, column=1, padx=0, pady=5)
-    
+            self.task_label[i].grid(row=i+1, column=1, padx=0, pady=10)
+        # scrollbarを作成・配置し、canvasと紐づける
+        self.main_frame.grid_rowconfigure((0,1,2,3,4,5,6,7), weight=1)
+        self.scrollbar = tkinter.Scrollbar(self.tmp_frame, orient=tkinter.VERTICAL, command=self.main_canvas.yview)
+        self.main_canvas.config(yscrollcommand=self.scrollbar.set)
+        self.scrollbar.grid(row=0, column=1, sticky=(tkinter.N, tkinter.S))
+        # canvasの横幅を取得し、横幅に合わせてframeを描画
+        self.update()
+        canvas_width = self.main_canvas.winfo_width()
+        self.main_canvas.create_window((0,0), window=self.main_frame, anchor="nw",width=canvas_width)
+        # Frameの大きさを確定してCanvasにスクロール範囲を設定
+        self.main_frame.update_idletasks()
+        self.main_canvas.config(scrollregion=self.main_canvas.bbox("all"))
+
     # task.jsonを読み込み、表示中の日付のtask名と真偽値をself.now_date_task_diに格納する関数------------------------------------------------------------------------------------------
     def read_task(self):
         # task.jsonを読み込み、task_diという辞書に記録する
@@ -209,6 +233,8 @@ class App(customtkinter.CTk):
                 self.remove_task_checkbox[i].grid_forget()
                 self.remove_task_label[i].grid_forget()
             self.remove_ok_button.grid_forget()
+        elif self.screen_id == 4:
+            self.graph_frame.grid_forget()
 
     # チェックボックスを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def task_checkbox_event(self):
@@ -403,6 +429,67 @@ class App(customtkinter.CTk):
         self.display_topbar()
         self.display_taskbar()
 
+    # グラフボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
+    def display_graph_button(self):
+        # 不要なフレームを削除
+        self.remove_gird()
+        # 画面状態を更新
+        self.screen_id = 4
+        # matplotlib配置用フレーム
+        self.graph_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
+        self.graph_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
+        # matplotlibの描画領域の作成
+        fig = Figure(facecolor="0.2", edgecolor="white")
+        # 座標軸の作成
+        self.ax = fig.add_subplot(111)
+        self.ax.set_facecolor("0.2")
+        self.ax.spines['bottom'].set_color('white')
+        self.ax.spines['top'].set_color('white')
+        self.ax.spines['left'].set_color('white')
+        self.ax.spines['right'].set_color('white')
+        self.ax.tick_params(axis='x', colors='white')
+        self.ax.tick_params(axis='y', colors='white')
+        self.ax.xaxis.label.set_color('white')
+        self.ax.yaxis.label.set_color('white')
+        self.ax.set_xlabel("日付", fontname="MS Gothic")
+        self.ax.set_ylabel("達成率(%)", fontname="MS Gothic")
+        self.ax.set_ylim(0, 100)
+        # matplotlibの描画領域とウィジェット(Frame)の関連付け
+        self.fig_canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+        # matplotlibのグラフをフレームに配置
+        self.fig_canvas.get_tk_widget().pack(fill=customtkinter.BOTH, expand=True)
+        # daily.jsonを読み込んdaily_diへ
+        self.sort_date = sorted(self.daily_di)
+        y = []
+        x = []
+        for date in self.sort_date:
+            x.append(date[-5:])
+            date_count = len(self.daily_di[date])
+            ok_count = 0
+            for name in self.daily_di[date]:
+                if self.daily_di[date][name]:
+                    ok_count += 1
+            percent = ok_count / date_count * 100
+            y.append(percent)
+        # グラフの描画
+        self.ax.plot(x, y, marker='o')
+        for i, value in enumerate(y):
+            self.ax.text(x[i], y[i]+3, round(value, 2),color='white')
+    
+    # ウィンドウリサイズが起きた時にUIを更新する関数---------------------------------------------------------------------------------------------------------------------
+    def callback(event,self):
+        global width, height
+        # ウィンドウリサイズ以外のイベントは無視
+        if (event.winfo_width() == width) and (event.winfo_height() == height):
+            return
+        width = event.winfo_width()
+        height = event.winfo_height()
+        event.display_taskbar()
+
 if __name__ == "__main__":
     app = App()
+    width = 1100
+    height = 580
+    # もしウィンドウリサイズが起きたらUIも更新
+    app.bind("<Configure>", app.callback)
     app.mainloop()
