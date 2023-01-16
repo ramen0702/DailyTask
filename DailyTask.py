@@ -57,10 +57,15 @@ class App(customtkinter.CTk):
         # 開始日をdaily.jsonから読み、それ以前の日にちには遷移させない
         self.check_first_date()
 
+        # 開始日から今日までの日付をall_dateに格納
+        self.get_all_date()
+
         # 日付フレーム(右上)の表示
         self.display_topbar()
+
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
+        
         
 
     # ダークモードとライトモードを切り替える関数------------------------------------------------------------------------------------------
@@ -91,6 +96,18 @@ class App(customtkinter.CTk):
         else:
             self.min_date = datetime.datetime.now().strftime('%Y/%m/%d')
     
+        
+    # 開始日から今日までの日付をall_dateに格納する関数------------------------------------------------------------------------------------------
+    def get_all_date(self):
+        y,m,d = map(int,self.min_date.split("/"))
+        self.all_date = []
+        index_date = datetime.date(y, m, d)
+        now = datetime.datetime.now()
+        while index_date.strftime('%Y/%m/%d/') != now.strftime('%Y/%m/%d/'):
+            self.all_date.append(index_date.strftime('%Y/%m/%d'))
+            index_date += datetime.timedelta(days=1)
+        self.all_date.append(index_date.strftime('%Y/%m/%d'))
+
     # 日付フレーム(右上)を表示する関数------------------------------------------------------------------------------------------
     def display_topbar(self):
         # レイアウトの設定
@@ -101,9 +118,12 @@ class App(customtkinter.CTk):
         # 本日の日付を表示
         # 表示する日付(可変)はself.dt_nowに格納される(datetime型)
         self.dt_now = datetime.datetime.now()
-        self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
-        , font=customtkinter.CTkFont(size=30, weight="bold"))
-        self.today_label.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
+        initial_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d'))
+        self.date_combobox = customtkinter.CTkOptionMenu(self.topbar_frame,values=self.all_date, variable=initial_date
+        ,command=self.change_date_event,font=customtkinter.CTkFont(size=30, weight="bold") ,anchor = "center")
+        # self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
+        # , font=customtkinter.CTkFont(size=30, weight="bold"))
+        self.date_combobox.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
         # 進む、戻るボタンの表示
         self.prev_button = customtkinter.CTkButton(self.topbar_frame, text="◀"
         , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.prev_button_event)
@@ -113,7 +133,7 @@ class App(customtkinter.CTk):
         self.next_button.grid(row=0, column=2, padx=50, pady=10,)
         # もし更新後の表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
         if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
-            self.prev_button.configure(state="disabled")
+            self.prev_button.configure(state="disabled")        
 
     # タスクフレーム(右,右下)を表示する関数------------------------------------------------------------------------------------------
     def display_taskbar(self):
@@ -210,7 +230,7 @@ class App(customtkinter.CTk):
     def remove_gird(self):
         if self.screen_id == 1:
             self.topbar_frame.grid_forget()
-            self.today_label.grid_forget()
+            self.date_combobox.grid_forget()
             self.prev_button.grid_forget()
             self.next_button.grid_forget()
             self.main_frame.grid_forget()
@@ -292,7 +312,8 @@ class App(customtkinter.CTk):
     # 日付変更時の表示更新
     def daily_func(self):
         # ラベルのテキスト変更
-        self.today_label.configure(text=self.dt_now.strftime('%Y/%m/%d'))
+        new_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d'))
+        self.date_combobox.configure(variable=new_date)
         # タスクバーの更新表示
         self.display_taskbar()
         # 更新後の表示日数と、現実の日数が同じならば、未来へいけないように進むボタンを無向化
@@ -311,6 +332,12 @@ class App(customtkinter.CTk):
         else:
             self.prev_button.configure(state="normal")
     
+    # コンボボックスから日付を変更した時用の関数
+    def change_date_event(self,choice):
+        y,m,d = map(int,choice.split("/"))
+        self.dt_now = datetime.date(y,m,d)
+        self.daily_func()
+
     # タスク追加ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
     def add_task_button(self):
         # 不要なフレームを削除
