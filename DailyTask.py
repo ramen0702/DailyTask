@@ -71,7 +71,13 @@ class App(customtkinter.CTk):
     # ダークモードとライトモードを切り替える関数------------------------------------------------------------------------------------------
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
-
+        if self.screen_id == 4:
+            self.remove_gird()
+            self.display_graph_button()
+        elif self.screen_id == 1:
+            self.remove_gird()
+            self.display_topbar()
+            self.display_taskbar()
 
     # daily.jsonを読み込む関数------------------------------------------------------------------------------------------
     def read_daily(self):
@@ -144,7 +150,10 @@ class App(customtkinter.CTk):
         self.tmp_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
         self.tmp_frame.grid_columnconfigure(0,weight=1)
         self.tmp_frame.grid_rowconfigure(0,weight=1)
-        self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray17", highlightthickness=0)
+        if self._get_appearance_mode() == "dark":
+            self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray17", highlightthickness=0)
+        else:
+            self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray87", highlightthickness=0)
         self.main_canvas.grid(row=0,column=0,sticky="nsew")
         self.main_canvas.grid_columnconfigure(0,weight=1)
         self.main_canvas.grid_rowconfigure(0,weight=1)
@@ -468,18 +477,25 @@ class App(customtkinter.CTk):
         self.graph_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
         self.graph_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
         # matplotlibの描画領域の作成
-        fig = Figure(facecolor="0.2", edgecolor="white")
+        if self._get_appearance_mode() == "dark":
+            fig = Figure(facecolor="0.2", edgecolor="white")
+        else:
+            fig = Figure()
         # 座標軸の作成
         self.ax = fig.add_subplot(111)
-        self.ax.set_facecolor("0.2")
-        self.ax.spines['bottom'].set_color('white')
-        self.ax.spines['top'].set_color('white')
-        self.ax.spines['left'].set_color('white')
-        self.ax.spines['right'].set_color('white')
-        self.ax.tick_params(axis='x', colors='white')
-        self.ax.tick_params(axis='y', colors='white')
-        self.ax.xaxis.label.set_color('white')
-        self.ax.yaxis.label.set_color('white')
+        if self._get_appearance_mode() == "dark":
+            self.ax.set_facecolor("0.2")
+            self.ax.spines['bottom'].set_color('white')
+            self.ax.spines['top'].set_color('white')
+            self.ax.spines['left'].set_color('white')
+            self.ax.spines['right'].set_color('white')
+            self.ax.xaxis.label.set_color('white')
+            self.ax.yaxis.label.set_color('white')
+            self.ax.tick_params(axis='x', colors='white')
+            self.ax.tick_params(axis='y', colors='white')
+        else:
+            self.ax.tick_params(axis='x')
+            self.ax.tick_params(axis='y')
         self.ax.set_xlabel("日付", fontname="MS Gothic")
         self.ax.set_ylabel("達成率(%)", fontname="MS Gothic")
         self.ax.set_ylim(0, 100)
@@ -503,7 +519,10 @@ class App(customtkinter.CTk):
         # グラフの描画
         self.ax.plot(x, y, marker='o')
         for i, value in enumerate(y):
-            self.ax.text(x[i], y[i]+3, round(value, 2),color='white')
+            if self._get_appearance_mode() == "dark":
+                self.ax.text(x[i], y[i]+3, round(value, 2),color='white')
+            else:
+                self.ax.text(x[i], y[i]+3, round(value, 2))
     
     # ウィンドウリサイズが起きた時にUIを更新する関数---------------------------------------------------------------------------------------------------------------------
     def callback(event,self):
