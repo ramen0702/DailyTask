@@ -364,8 +364,18 @@ class App(customtkinter.CTk):
 
     # 追加確定ボタンを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def add_ok_event(self):
-        # task_diに、新しく追加するtask名と現在時刻を追加して格納
+        # task名が半角16文字以下ならtask_diに、新しく追加するtask名と現在時刻を追加して格納
         task_name = self.add_name_entry.get()
+        if len(task_name.encode('shift_jis')) > 16:
+            window = customtkinter.CTkToplevel(self)
+            window.geometry("400x200")
+            label = customtkinter.CTkLabel(window, text="16バイト以下のタスク名を設定してください",font=customtkinter.CTkFont(family="メイリオ"))
+            label.pack(padx=40, pady=25)
+            def button_event():
+                window.destroy()
+            button = customtkinter.CTkButton(window, text="OK",font=customtkinter.CTkFont(family="メイリオ"),command=button_event)
+            button.pack(padx=40, pady=25)
+            return
         self.task_di[task_name] = self.dt_now.strftime('%Y/%m/%d')
         # 格納したデータをtask.jsonにファイル書き込み
         self.write_task()
