@@ -22,7 +22,7 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure(1, weight=1)
 
         # 画面状態を記憶する変数
-        # 1:メイン,2:追加,3:削除
+        # 1:メイン,2:追加,3:削除,4:グラフ
         self.screen_id = 1
 
         # メニューバー(左)の表示------------------------------------------------------------------------------------------
@@ -377,12 +377,9 @@ class App(customtkinter.CTk):
         self.write_daily()
         # 画面遷移
         # タスク追加画面をフレームをすべて削除
-        self.add_frame.grid_forget()
-        self.add_name_frame.grid_forget()
-        self.add_name_label.grid_forget()
-        self.add_name_entry.grid_forget()
-        self.add_ok_button.grid_forget()
+        self.remove_gird()
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
+        self.screen_id = 1
         self.display_topbar()
         self.display_taskbar()
     
@@ -444,15 +441,10 @@ class App(customtkinter.CTk):
         # 新しいdaily_diをdaily.jsonに更新
         self.write_daily()
         # 画面遷移
-        # タスク削除画面のフレームをすべて削除
-        self.remove_frame.grid_forget()
-        for i in range(2):
-            self.remove_item_label[i].grid_forget()
-        for i in range(len(self.today_date_task)):
-            self.remove_task_checkbox[i].grid_forget()
-            self.remove_task_label[i].grid_forget()
-        self.remove_ok_button.grid_forget()
+        # タスク追加画面をフレームをすべて削除
+        self.remove_gird()
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
+        self.screen_id = 1
         self.display_topbar()
         self.display_taskbar()
 
