@@ -43,13 +43,15 @@ class App(customtkinter.CTk):
         # 削除ボタン
         self.menu_button[1].configure(command=self.remove_task_button)
         # グラフボタン
-        self.menu_button[2].configure(command=self.display_graph_button)
+        self.menu_button[2].configure(command=self.graph_button)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
         # ダークモードとライトモードの選択メニュー
         self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(self.menubar_frame, values=["System" ,"Light", "Dark"],command=self.change_appearance_mode_event)
         self.appearance_mode_optionemenu.grid(row=7, column=0, padx=20, pady=(10, 10))
+
+        self.week = ["(月)","(火)","(水)","(木)","(金)","(土)","(日)"]
 
         # daily.jsonを読む
         self.read_daily()
@@ -73,7 +75,7 @@ class App(customtkinter.CTk):
         customtkinter.set_appearance_mode(new_appearance_mode)
         if self.screen_id == 4:
             self.remove_gird()
-            self.display_graph_button()
+            self.display_graph()
         elif self.screen_id == 1:
             self.remove_gird()
             self.display_topbar()
@@ -110,9 +112,10 @@ class App(customtkinter.CTk):
         index_date = datetime.date(y, m, d)
         now = datetime.datetime.now()
         while index_date.strftime('%Y/%m/%d/') != now.strftime('%Y/%m/%d/'):
-            self.all_date.append(index_date.strftime('%Y/%m/%d'))
+            self.all_date.append(index_date.strftime('%Y/%m/%d')+self.week[index_date.weekday()])
             index_date += datetime.timedelta(days=1)
-        self.all_date.append(index_date.strftime('%Y/%m/%d'))
+        self.all_date.append(index_date.strftime('%Y/%m/%d')+self.week[index_date.weekday()])
+        self.all_date = list(reversed(self.all_date))
 
     # 日付フレーム(右上)を表示する関数------------------------------------------------------------------------------------------
     def display_topbar(self):
@@ -124,7 +127,7 @@ class App(customtkinter.CTk):
         # 本日の日付を表示
         # 表示する日付(可変)はself.dt_nowに格納される(datetime型)
         self.dt_now = datetime.datetime.now()
-        initial_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d'))
+        initial_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d')+self.week[self.dt_now.weekday()])
         self.date_combobox = customtkinter.CTkOptionMenu(self.topbar_frame,values=self.all_date, variable=initial_date
         ,command=self.change_date_event,font=customtkinter.CTkFont(size=30, weight="bold") ,anchor = "center")
         # self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
@@ -137,7 +140,7 @@ class App(customtkinter.CTk):
         self.next_button = customtkinter.CTkButton(self.topbar_frame, text="▶"
         , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.next_button_event,state="disabled")
         self.next_button.grid(row=0, column=2, padx=50, pady=10,)
-        # もし更新後の表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
+        # もし表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
         if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
             self.prev_button.configure(state="disabled")        
 
@@ -264,6 +267,10 @@ class App(customtkinter.CTk):
             self.remove_ok_button.grid_forget()
         elif self.screen_id == 4:
             self.graph_frame.grid_forget()
+            self.graph_date_frame.grid_forget()
+            self.date_label.grid_forget()
+            self.graph_prev_button.grid_forget()
+            self.graph_next_button.grid_forget()
 
     # チェックボックスを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def task_checkbox_event(self):
@@ -321,7 +328,7 @@ class App(customtkinter.CTk):
     # 日付変更時の表示更新
     def daily_func(self):
         # ラベルのテキスト変更
-        new_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d'))
+        new_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d') +self.week[self.dt_now.weekday()])
         self.date_combobox.configure(variable=new_date)
         # タスクバーの更新表示
         self.display_taskbar()
@@ -343,7 +350,9 @@ class App(customtkinter.CTk):
     
     # コンボボックスから日付を変更した時用の関数
     def change_date_event(self,choice):
-        y,m,d = map(int,choice.split("/"))
+        y,m,d = choice.split("/")
+        d = d[:2]
+        y,m,d = map(int,(y,m,d))
         self.dt_now = datetime.date(y,m,d)
         self.daily_func()
 
@@ -468,14 +477,19 @@ class App(customtkinter.CTk):
         self.display_taskbar()
 
     # グラフボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
-    def display_graph_button(self):
+    def graph_button(self):
+        self.dt_now = datetime.datetime.now()
+        self.display_graph()
+
+    def display_graph(self):
         # 不要なフレームを削除
         self.remove_gird()
         # 画面状態を更新
         self.screen_id = 4
+        self.display_graph_date()
         # matplotlib配置用フレーム
         self.graph_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.graph_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
+        self.graph_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
         # matplotlibの描画領域の作成
         if self._get_appearance_mode() == "dark":
             fig = Figure(facecolor="0.2", edgecolor="white")
@@ -504,11 +518,18 @@ class App(customtkinter.CTk):
         # matplotlibのグラフをフレームに配置
         self.fig_canvas.get_tk_widget().pack(fill=customtkinter.BOTH, expand=True)
         # daily.jsonを読み込んdaily_diへ
-        self.sort_date = sorted(self.daily_di)
+        self.sort_date = sorted(self.daily_di,reverse=True)
+        # sort_dateがdt_nowと一致するインデックスを探索
+        dt_index = self.sort_date.index(self.dt_now.strftime('%Y/%m/%d'))
         y = []
         x = []
-        for date in self.sort_date:
-            x.append(date[-5:])
+        i = dt_index
+        while i < dt_index+7:
+            if i >= len(self.sort_date):
+                break
+            date = self.sort_date[i]
+            today = datetime.date(int(date[:4]),int(date[5:7]),int(date[8:]))
+            x.append(date[-5:]+self.week[today.weekday()])
             date_count = len(self.daily_di[date])
             ok_count = 0
             for name in self.daily_di[date]:
@@ -516,13 +537,70 @@ class App(customtkinter.CTk):
                     ok_count += 1
             percent = ok_count / date_count * 100
             y.append(percent)
+            i+=1
+        x = x[::-1]
+        y = y[::-1]
+        self.ax.set_xticks(list(range(len(x))))
+        self.ax.set_xticklabels(x,fontfamily="MS Gothic")
         # グラフの描画
         self.ax.plot(x, y, marker='o')
         for i, value in enumerate(y):
             if self._get_appearance_mode() == "dark":
-                self.ax.text(x[i], y[i]+3, round(value, 2),color='white')
+                self.ax.text(x[i], y[i]+3, round(value),color='white')
             else:
-                self.ax.text(x[i], y[i]+3, round(value, 2))
+                self.ax.text(x[i], y[i]+3, round(value))
+    
+    # グラフの日付フレーム(右上)を表示する関数------------------------------------------------------------------------------------------
+    def display_graph_date(self):
+        # レイアウトの設定
+        self.graph_date_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
+        self.graph_date_frame.grid(row=0,column=1,padx=20,pady=20,sticky="nsew")
+        self.graph_date_frame.grid_columnconfigure(1, weight=1)
+        self.graph_date_frame.grid_columnconfigure((0,2), weight=0)
+        # 本日の日付を表示
+        # 表示する日付(可変)はself.dt_nowに格納される(datetime型)
+        self.date_label = customtkinter.CTkLabel(self.graph_date_frame, text="～"+self.dt_now.strftime('%Y/%m/%d')+self.week[self.dt_now.weekday()]
+        , font=customtkinter.CTkFont(size=30, weight="bold"))
+        self.date_label.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
+        # 進む、戻るボタンの表示
+        self.graph_prev_button = customtkinter.CTkButton(self.graph_date_frame, text="◀"
+        , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.graph_prev_button_event)
+        self.graph_prev_button.grid(row=0, column=0, padx=50, pady=10,)
+        self.graph_next_button = customtkinter.CTkButton(self.graph_date_frame, text="▶"
+        , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.graph_next_button_event,state="disabled")
+        self.graph_next_button.grid(row=0, column=2, padx=50, pady=10,)
+        # もし表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
+        if (self.dt_now - datetime.timedelta(days=7)).strftime('%Y/%m/%d') not in self.daily_di:
+            self.graph_prev_button.configure(state="disabled")      
+    
+    # グラフの進む、戻るボタン関連の関数-----------------------------------------------------------------------------------------------
+    # 翌週に進むボタン
+    def graph_next_button_event(self):
+        # 日付を加算
+        self.dt_now += datetime.timedelta(days=7)
+        self.weekly_func()
+
+    # 前週に戻るボタン
+    def graph_prev_button_event(self):
+        # 日付を減算
+        self.dt_now -= datetime.timedelta(days=7)
+        self.weekly_func()
+    
+    # 日付変更時の表示更新
+    def weekly_func(self):
+        # タスクバーの更新表示
+        self.display_graph()
+        # 更新後の表示日数と、現実の日数が同じならば、未来へいけないように進むボタンを無向化
+        # 更新後の表示日数と、現実の日数が同じゃなければ、タスクのチェックボタンを無向化
+        if self.dt_now.strftime('%Y/%m/%d') == datetime.datetime.now().strftime('%Y/%m/%d'):
+            self.graph_next_button.configure(state="disabled")
+        else:
+            self.graph_next_button.configure(state="normal")
+        # もし更新後の表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
+        if (self.dt_now - datetime.timedelta(days=7)).strftime('%Y/%m/%d') not in self.daily_di:
+            self.graph_prev_button.configure(state="disabled")
+        else:
+            self.graph_prev_button.configure(state="normal")
     
     # ウィンドウリサイズが起きた時にUIを更新する関数---------------------------------------------------------------------------------------------------------------------
     def callback(event,self):
@@ -532,7 +610,9 @@ class App(customtkinter.CTk):
             return
         width = event.winfo_width()
         height = event.winfo_height()
-        event.display_taskbar()
+        if event.screen_id == 1:
+            event.display_taskbar()
+
 
 if __name__ == "__main__":
     app = App()
