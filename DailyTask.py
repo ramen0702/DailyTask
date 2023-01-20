@@ -18,8 +18,8 @@ class App(customtkinter.CTk):
         self.geometry(f"{1100}x{580}+{100}+{100}")
         self.minsize(300, 580)
 
-        # ウィンドウレイアウトの設定(2×2)------------------------------------------------------------------------------------------
-        self.grid_rowconfigure(1, weight=1)
+        # ウィンドウレイアウトの設定(4×4)------------------------------------------------------------------------------------------
+        self.grid_rowconfigure((0,1,2,3,4), weight=1)
         self.grid_columnconfigure(1, weight=1)
 
         # 画面状態を記憶する変数
@@ -30,7 +30,7 @@ class App(customtkinter.CTk):
         # レイアウトの設定
         self.menu_names = ["追加","削除","グラフ"]
         self.menubar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
-        self.menubar_frame.grid(row=0,column=0,rowspan=2,sticky="nsew")
+        self.menubar_frame.grid(row=0,column=0,rowspan=5,sticky="nsew")
         for i in range(len(self.menu_names)+5):
             self.menubar_frame.grid_rowconfigure(i, weight=1)
         # ロゴの表示(ロゴを押すとメイン画面へ遷移)
@@ -66,6 +66,9 @@ class App(customtkinter.CTk):
         # 日付フレーム(右上)の表示
         self.display_topbar()
 
+        # ソートフレームを表示
+        self.display_sort_menu()
+
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
 
@@ -75,12 +78,13 @@ class App(customtkinter.CTk):
         # タスクの通知時間を並べたリストを作成
         self.set_task_times()
 
+        # 5秒ごとに通知しなければならないタスクがあるか確認
         self.after(5000,self.is_task_time)
 
+    # 5秒ごとに通知しなければならないタスクがあるか確認---------------------------------------------------------------------------------
     def is_task_time(self):
         dt_now = datetime.datetime.now()
         now = dt_now.time()
-        print("実行中")
         for key in self.task_times:
             h,m = map(int,self.task_times[key].split(":"))
             task_time = datetime.time(h,m,0)
@@ -98,9 +102,11 @@ class App(customtkinter.CTk):
         elif self.screen_id == 1:
             self.remove_gird()
             self.display_topbar()
+            self.display_sort_menu()
             self.display_taskbar()
             self.remove_gird()
             self.display_topbar()
+            self.display_sort_menu()
             self.display_taskbar()
 
     # daily.jsonを読み込む関数------------------------------------------------------------------------------------------
@@ -143,7 +149,7 @@ class App(customtkinter.CTk):
     def display_topbar(self):
         # レイアウトの設定
         self.topbar_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.topbar_frame.grid(row=0,column=1,padx=20,pady=20,sticky="nsew")
+        self.topbar_frame.grid(row=0,column=1,padx=20,pady=20,sticky="ew")
         self.topbar_frame.grid_columnconfigure(1, weight=1)
         self.topbar_frame.grid_columnconfigure((0,2), weight=0)
         # 本日の日付を表示
@@ -162,15 +168,48 @@ class App(customtkinter.CTk):
         self.next_button.grid(row=0, column=2, padx=50, pady=10,)
         # もし表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
         if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
-            self.prev_button.configure(state="disabled")         
+            self.prev_button.configure(state="disabled")     
+
+    # ソートフレームを表示する関数------------------------------------------------------------------------------------------
+    def display_sort_menu(self):
+        self.sort_frame = customtkinter.CTkFrame(self,width = 500,corner_radius=0)
+        self.sort_frame.grid(row=1,column=1,padx=20,sticky="ne")
+        sort_list = ["辞書","追加日"]
+        self.sort_combobox = customtkinter.CTkOptionMenu(self.sort_frame,values=sort_list,font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),anchor = "center",command=self.display_tasks)
+        self.sort_combobox.grid(row=0, column = 0, padx=10,pady=5,sticky="nsew") 
+        self.sort_checkbox = customtkinter.CTkCheckBox(self.sort_frame,text="降順",font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),command=self.display_taskbar)
+        self.sort_checkbox.grid(row=0, column = 1, padx=10,pady=5,sticky="nsew") 
+
+    def display_tasks(self,choice):
+        self.display_taskbar()
+
+    def sort_task(self):
+        self.task_names = []
+        if self.sort_combobox.get() == "辞書":
+            for name in self.now_date_task_di:
+                self.task_names.append(name)
+            if self.sort_checkbox.get() == 1:
+                self.task_names.sort(reverse=True)
+            else:
+                self.task_names.sort()
+        elif self.sort_combobox.get() == "追加日":
+            tmp = []
+            for name in self.now_date_task_di:
+                tmp.append([self.task_di[name]["date"],name])
+            if self.sort_checkbox.get() == 1:
+                tmp.sort(reverse=True)
+            else:
+                tmp.sort()
+            for i in range(len(tmp)):
+                self.task_names.append(tmp[i][1])
 
     # タスクフレーム(右,右下)を表示する関数------------------------------------------------------------------------------------------
     def display_taskbar(self):
         # レイアウトの設定
         # tmp_frameにcanvasとscrollbarが配置され、canvasにmain_frameの内容を表示する
         # scrollbarはcanvasを動かし、同時にmain_frameもスライドする
-        self.tmp_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
-        self.tmp_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
+        self.tmp_frame = customtkinter.CTkFrame(self, height=500, corner_radius=0)
+        self.tmp_frame.grid(row=2,column=1,rowspan=3,padx=20,pady=20,sticky="nsew")
         self.tmp_frame.grid_columnconfigure(0,weight=1)
         self.tmp_frame.grid_rowconfigure(0,weight=1)
         if self._get_appearance_mode() == "dark":
@@ -184,6 +223,7 @@ class App(customtkinter.CTk):
         # 現在開いている日付の、タスク名と真偽値をtask.jsonから参照し、
         # now_date_task_diに辞書型として記録
         self.read_task()
+        self.sort_task()
         # 項目名の表示
         item_names = ["達成　　　","タスク名"]
         self.item_label = [customtkinter.CTkLabel(
@@ -196,7 +236,7 @@ class App(customtkinter.CTk):
             self.item_label[i].grid(row=0, column=i, padx=0, pady=5)
         # チェックボックスの表示
         self.task_checkbox = [customtkinter.CTkCheckBox(master=self.main_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.now_date_task_di))]
-        for i,key in enumerate(self.now_date_task_di):
+        for i,key in enumerate(self.task_names):
             self.task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
             # もし真偽値が真ならチェックを入れる
             if self.now_date_task_di[key]:
@@ -206,7 +246,7 @@ class App(customtkinter.CTk):
             self.main_frame
             , text=name
             , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
-            for name in self.now_date_task_di]
+            for name in self.task_names]
         for i in range(len(self.now_date_task_di)):
             self.task_label[i].grid(row=i+1, column=1, padx=0, pady=10)
         # scrollbarを作成・配置し、canvasと紐づける
@@ -283,6 +323,8 @@ class App(customtkinter.CTk):
         event.remove_gird()
         # 日付フレーム(右上)の表示
         event.display_topbar()
+        # ソートフレームを表示
+        event.display_sort_menu()
         # タスク欄の表示
         event.display_taskbar()
         # 画面状態を更新
@@ -301,6 +343,9 @@ class App(customtkinter.CTk):
             for i in range(len(self.now_date_task_di)):
                 self.task_checkbox[i].grid_forget()
                 self.task_label[i].grid_forget()
+            self.sort_frame.grid_forget()
+            self.sort_combobox.grid_forget()
+            self.sort_checkbox.grid_forget()
         elif self.screen_id == 2:
             self.add_frame.grid_forget()
             self.add_task_frame.grid_forget()
@@ -422,7 +467,7 @@ class App(customtkinter.CTk):
         self.screen_id = 2
         # レイアウトの設定
         self.add_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.add_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
+        self.add_frame.grid(row=0,column=1,rowspan=5,padx=20,pady=20,sticky="nsew")
         self.add_frame.grid_rowconfigure((0,1,2,3), weight=1)
         self.add_frame.grid_columnconfigure((0,1), weight=1)
         # タスク名入力を促すフレーム
@@ -450,10 +495,10 @@ class App(customtkinter.CTk):
         self.time_frame.grid(row=2,column=1)
         self.time_frame.grid_columnconfigure((0,1,2,3), weight=1)
         self.add_time_label = [customtkinter.CTkLabel(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=20),width=35) for _ in range(2)]
-        self.add_time_combobox = [customtkinter.CTkComboBox(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=20),width=65) for _ in range(2)]
-        self.add_time_label[0].configure(text="時")
+        self.add_time_combobox = [customtkinter.CTkComboBox(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=15),width=80) for _ in range(2)]
+        self.add_time_label[0].configure(text="　時　")
         self.add_time_label[0].grid(row=0, column=1)
-        self.add_time_label[1].configure(text="分")
+        self.add_time_label[1].configure(text="　分　")
         self.add_time_label[1].grid(row=0, column=3)
         hour = [str(i) for i in range(24)]
         minute = [str(i) for i in range(60)]
@@ -516,6 +561,7 @@ class App(customtkinter.CTk):
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
         self.screen_id = 1
         self.display_topbar()
+        self.display_sort_menu()
         self.display_taskbar()
     
     def display_error(self,S):
@@ -536,7 +582,7 @@ class App(customtkinter.CTk):
         self.screen_id = 3
         # レイアウトの設定
         self.remove_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
-        self.remove_frame.grid(row=0,column=1,rowspan = 2,padx=20,pady=20,sticky="nsew")
+        self.remove_frame.grid(row=0,column=1,rowspan=5,padx=20,pady=20,sticky="nsew")
         # self.task_diからタスク名を参照し、today_date_taskにリストとして記録
         self.today_date_task = []
         for name in self.task_di:
@@ -591,6 +637,7 @@ class App(customtkinter.CTk):
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
         self.screen_id = 1
         self.display_topbar()
+        self.display_sort_menu()
         self.display_taskbar()
 
     # グラフボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
@@ -606,7 +653,7 @@ class App(customtkinter.CTk):
         self.display_graph_date()
         # matplotlib配置用フレーム
         self.graph_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.graph_frame.grid(row=1,column=1,padx=20,pady=20,sticky="nsew")
+        self.graph_frame.grid(row=1,column=1,rowspan = 4,padx=20,pady=20,sticky="nsew")
         # matplotlibの描画領域の作成
         if self._get_appearance_mode() == "dark":
             fig = Figure(facecolor="0.2", edgecolor="white")
