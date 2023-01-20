@@ -5,6 +5,7 @@ import os
 import json
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from plyer import notification
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -70,7 +71,24 @@ class App(customtkinter.CTk):
 
         # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける
         self.set_false_date()
-        
+
+        # タスクの通知時間を並べたリストを作成
+        self.set_task_times()
+
+        self.after(5000,self.is_task_time)
+
+    def is_task_time(self):
+        dt_now = datetime.datetime.now()
+        now = dt_now.time()
+        print("実行中")
+        for key in self.task_times:
+            h,m = map(int,self.task_times[key].split(":"))
+            task_time = datetime.time(h,m,0)
+            if now >= task_time:
+                notification.notify(title = key+"の時間です",message = key+"を実行しましょう",app_name = "DailyTask",timeout = 10)
+                self.task_times.pop(key)
+        self.after(5000,self.is_task_time)
+
     # ダークモードとライトモードを切り替える関数------------------------------------------------------------------------------------------
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -78,6 +96,9 @@ class App(customtkinter.CTk):
             self.remove_gird()
             self.display_graph()
         elif self.screen_id == 1:
+            self.remove_gird()
+            self.display_topbar()
+            self.display_taskbar()
             self.remove_gird()
             self.display_topbar()
             self.display_taskbar()
@@ -141,7 +162,7 @@ class App(customtkinter.CTk):
         self.next_button.grid(row=0, column=2, padx=50, pady=10,)
         # もし表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
         if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
-            self.prev_button.configure(state="disabled")        
+            self.prev_button.configure(state="disabled")         
 
     # タスクフレーム(右,右下)を表示する関数------------------------------------------------------------------------------------------
     def display_taskbar(self):
@@ -222,8 +243,9 @@ class App(customtkinter.CTk):
         else:
             self.daily_di[self.dt_now.strftime('%Y/%m/%d')] = {}
             for key in self.task_di:
-                self.now_date_task_di[key] = False
-                self.daily_di[self.dt_now.strftime('%Y/%m/%d')][key] = False
+                if self.dt_now.weekday() in self.task_di[key]["week"]:
+                    self.now_date_task_di[key] = False
+                    self.daily_di[self.dt_now.strftime('%Y/%m/%d')][key] = False
             self.write_daily()
     
     # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける関数------------------------------------------------------------------------------------------
@@ -235,12 +257,25 @@ class App(customtkinter.CTk):
             if date.strftime('%Y/%m/%d') not in self.daily_di:
                 self.daily_di[date.strftime('%Y/%m/%d')] = {}
                 for key in self.task_di:
-                    self.daily_di[date.strftime('%Y/%m/%d')][key] = False
+                    if date.weekday() in self.task_di[key]["week"]:
+                        self.daily_di[date.strftime('%Y/%m/%d')][key] = False
             else:
                 break
             date -= datetime.timedelta(days=1)
         self.write_daily()
 
+    # task_timesにまだ本日分の通知が済んでいないタスクを格納する関数------------------------------------------------------------------------------------------
+    def set_task_times(self):
+        self.task_times = {}
+        dt_now = datetime.datetime.now()
+        date = self.dt_now
+        now = dt_now.time()
+        for key in self.task_di:
+            hour,min = map(int,self.task_di[key]["notice_time"].split(":"))
+            task_time = datetime.time(hour,min,0)
+            if now < task_time and date.weekday() in self.task_di[key]["week"]:
+                self.task_times[key] = self.task_di[key]["notice_time"]
+        
 
     # メイン画面へ遷移する関数--------------------------------------------------------------------------------
     def display_main(event,self):
@@ -268,10 +303,18 @@ class App(customtkinter.CTk):
                 self.task_label[i].grid_forget()
         elif self.screen_id == 2:
             self.add_frame.grid_forget()
-            self.add_name_frame.grid_forget()
+            self.add_task_frame.grid_forget()
             self.add_name_label.grid_forget()
             self.add_name_entry.grid_forget()
             self.add_ok_button.grid_forget()
+            self.add_weekly_label.grid_forget()
+            self.checkbox_frame.grid_forget()
+            self.time_frame.grid_forget()
+            for i in range(7):
+                self.add_weekly_checkbox[i].grid_forget()
+            for i in range(2):
+                self.add_time_label[i].grid_forget()
+                self.add_time_combobox[i].grid_forget()
         elif self.screen_id == 3:
             self.remove_frame.grid_forget()
             for i in range(2):
@@ -380,44 +423,93 @@ class App(customtkinter.CTk):
         # レイアウトの設定
         self.add_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
         self.add_frame.grid(row=0,column=1,rowspan=2,padx=20,pady=20,sticky="nsew")
-        self.add_frame.grid_rowconfigure((0,1), weight=1)
+        self.add_frame.grid_rowconfigure((0,1,2,3), weight=1)
         self.add_frame.grid_columnconfigure((0,1), weight=1)
         # タスク名入力を促すフレーム
-        self.add_name_frame = customtkinter.CTkFrame(self.add_frame, height=140, corner_radius=0)
-        self.add_name_frame.grid(row=0,column=0,columnspan=2,padx=50,pady=50,sticky="nsew")
-        self.add_name_frame.grid_rowconfigure((0,1), weight=1)
-        self.add_name_frame.grid_columnconfigure((0,1), weight=1)
-        self.add_name_label = customtkinter.CTkLabel(self.add_name_frame, text="タスク名",font=customtkinter.CTkFont(family="メイリオ",size=25))
-        self.add_name_label.grid(row=0, column=0,rowspan=2)
-        self.add_name_entry = customtkinter.CTkEntry(self.add_name_frame,font=customtkinter.CTkFont(family="メイリオ",size=25),width=300)
-        self.add_name_entry.grid(row=0, column=1,rowspan=2)
+        self.add_task_frame = customtkinter.CTkFrame(self.add_frame, height=140, corner_radius=0)
+        self.add_task_frame.grid(row=0,column=0,rowspan=3,columnspan=2,padx=50,pady=50,sticky="nsew")
+        self.add_task_frame.grid_rowconfigure((0,1,2), weight=1)
+        self.add_task_frame.grid_columnconfigure((0,1), weight=1)
+        self.add_name_label = customtkinter.CTkLabel(self.add_task_frame, text="タスク名",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.add_name_label.grid(row=0, column=0)
+        self.add_name_entry = customtkinter.CTkEntry(self.add_task_frame,font=customtkinter.CTkFont(family="メイリオ",size=25),width=420)
+        self.add_name_entry.grid(row=0, column=1)
+        self.add_weekly_label = customtkinter.CTkLabel(self.add_task_frame, text="曜日",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.add_weekly_label.grid(row=1, column=0)
+        self.checkbox_frame = customtkinter.CTkFrame(self.add_task_frame)
+        self.checkbox_frame.grid(row=1,column=1)
+        self.checkbox_frame.grid_columnconfigure((0,1,2,3,4,5,6), weight=1)
+        self.add_weekly_checkbox = [customtkinter.CTkCheckBox(self.checkbox_frame,width = 61,font=customtkinter.CTkFont(family="メイリオ",size=20)) for _ in range(7)]
+        for i in range(7):
+            self.add_weekly_checkbox[i].configure(text=self.week[i][1])
+            self.add_weekly_checkbox[i].grid(row=0, column=i)
+            self.add_weekly_checkbox[i].select()
+        self.add_time_label = customtkinter.CTkLabel(self.add_task_frame, text="通知時間",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.add_time_label.grid(row=2, column=0)
+        self.time_frame = customtkinter.CTkFrame(self.add_task_frame,corner_radius=0)
+        self.time_frame.grid(row=2,column=1)
+        self.time_frame.grid_columnconfigure((0,1,2,3), weight=1)
+        self.add_time_label = [customtkinter.CTkLabel(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=20),width=35) for _ in range(2)]
+        self.add_time_combobox = [customtkinter.CTkComboBox(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=20),width=65) for _ in range(2)]
+        self.add_time_label[0].configure(text="時")
+        self.add_time_label[0].grid(row=0, column=1)
+        self.add_time_label[1].configure(text="分")
+        self.add_time_label[1].grid(row=0, column=3)
+        hour = [str(i) for i in range(24)]
+        minute = [str(i) for i in range(60)]
+        self.add_time_combobox[0].configure(values=hour)
+        self.add_time_combobox[0].grid(row=0, column=0)
+        self.add_time_combobox[0].set("12")
+        self.add_time_combobox[1].configure(values=minute)
+        self.add_time_combobox[1].grid(row=0, column=2)
+        self.add_time_combobox[1].set("0")
         # 追加確定ボタン
         self.add_ok_button = customtkinter.CTkButton(self.add_frame,text="追加", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.add_ok_event)
-        self.add_ok_button.grid(row=1, column=1,)
+        self.add_ok_button.grid(row=3, column=1,)
 
     # 追加確定ボタンを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def add_ok_event(self):
-        # task名が半角16文字以下ならtask_diに、新しく追加するtask名と現在時刻を追加して格納
+        # taskが正しく追加されているか判断。正しくなければ追加しせず通知
         task_name = self.add_name_entry.get()
-        if len(task_name.encode('shift_jis')) > 16:
-            window = customtkinter.CTkToplevel(self)
-            window.geometry("400x200")
-            label = customtkinter.CTkLabel(window, text="16バイト以下のタスク名を設定してください",font=customtkinter.CTkFont(family="メイリオ"))
-            label.pack(padx=40, pady=25)
-            def button_event():
-                window.destroy()
-            button = customtkinter.CTkButton(window, text="OK",font=customtkinter.CTkFont(family="メイリオ"),command=button_event)
-            button.pack(padx=40, pady=25)
+        if len(task_name.encode('shift_jis')) < 1 or 16 < len(task_name.encode('shift_jis')):
+            self.display_error("1バイト以上16バイト以下のタスク名を設定してください")
             return
-        self.task_di[task_name] = self.dt_now.strftime('%Y/%m/%d')
+        if task_name in self.task_di:
+            self.display_error("すでにその名前は使われています")
+            return
+        weekly_index = []
+        for i in range(7):
+            if self.add_weekly_checkbox[i].get() == 1:
+                weekly_index.append(i)
+        if len(weekly_index) == 0:
+            self.display_error("曜日を1つ以上選択してください")
+            return
+        try:
+            h = int(self.add_time_combobox[0].get())
+            m = int(self.add_time_combobox[1].get())
+            task_time = datetime.time(h,m,0)
+            if datetime.time(0,0,0) >= task_time >= datetime.time(23,59,59):
+                self.display_error("正しい時間を入力してください")
+                return
+        except:
+            self.display_error("正しい時間を入力してください")
+            return
+        # task_diに、新しく追加するtaskの情報を格納
+        self.task_di[task_name] = {}
+        self.task_di[task_name]["date"] = self.dt_now.strftime('%Y/%m/%d')
+        self.task_di[task_name]["week"] = weekly_index
+        self.task_di[task_name]["notice_time"] = str(h)+":"+str(m)
         # 格納したデータをtask.jsonにファイル書き込み
         self.write_task()
         # daily_diにもtask名とfalseを格納
-        if datetime.datetime.now().strftime('%Y/%m/%d') not in self.daily_di:
-            self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')] = {}
-        self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')][task_name] = False
+        if self.dt_now.weekday() in self.task_di[task_name]["week"]:
+            if datetime.datetime.now().strftime('%Y/%m/%d') not in self.daily_di:
+                self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')] = {}
+            self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')][task_name] = False
         # 新しいdaily_diをdaily.jsonに更新
         self.write_daily()
+        # 必要ならば本日分の通知を行うように設定を行うか確認
+        self.set_task_times()
         # 画面遷移
         # タスク追加画面をフレームをすべて削除
         self.remove_gird()
@@ -426,6 +518,16 @@ class App(customtkinter.CTk):
         self.display_topbar()
         self.display_taskbar()
     
+    def display_error(self,S):
+        window = customtkinter.CTkToplevel(self)
+        window.geometry(f"{600}x{200}+{300}+{300}")
+        label = customtkinter.CTkLabel(window, text=S,font=customtkinter.CTkFont(family="メイリオ"))
+        label.pack(padx=40, pady=25)
+        def button_event():
+            window.destroy()
+        button = customtkinter.CTkButton(window, text="OK",font=customtkinter.CTkFont(family="メイリオ"),command=button_event)
+        button.pack(padx=40, pady=25)
+
     # タスク削除ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
     def remove_task_button(self):
         # 不要なフレームを削除
@@ -550,7 +652,10 @@ class App(customtkinter.CTk):
             for name in self.daily_di[date]:
                 if self.daily_di[date][name]:
                     ok_count += 1
-            percent = ok_count / date_count * 100
+            if date_count != 0:
+                percent = ok_count / date_count * 100
+            else:
+                percent = 0
             y.append(percent)
             i+=1
         x = x[::-1]
