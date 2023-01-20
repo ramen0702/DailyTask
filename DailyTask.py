@@ -67,9 +67,10 @@ class App(customtkinter.CTk):
 
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
-        
-        
 
+        # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける
+        self.set_false_date()
+        
     # ダークモードとライトモードを切り替える関数------------------------------------------------------------------------------------------
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -130,8 +131,6 @@ class App(customtkinter.CTk):
         initial_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d')+self.week[self.dt_now.weekday()])
         self.date_combobox = customtkinter.CTkOptionMenu(self.topbar_frame,values=self.all_date, variable=initial_date
         ,command=self.change_date_event,font=customtkinter.CTkFont(size=30, weight="bold") ,anchor = "center")
-        # self.today_label = customtkinter.CTkLabel(self.topbar_frame, text=self.dt_now.strftime('%Y/%m/%d')
-        # , font=customtkinter.CTkFont(size=30, weight="bold"))
         self.date_combobox.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
         # 進む、戻るボタンの表示
         self.prev_button = customtkinter.CTkButton(self.topbar_frame, text="◀"
@@ -226,6 +225,22 @@ class App(customtkinter.CTk):
                 self.now_date_task_di[key] = False
                 self.daily_di[self.dt_now.strftime('%Y/%m/%d')][key] = False
             self.write_daily()
+    
+    # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける関数------------------------------------------------------------------------------------------
+    def set_false_date(self):
+        if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
+            return
+        date = self.dt_now - datetime.timedelta(days=1)
+        while date.strftime('%Y/%m/%d') != self.min_date:
+            if date.strftime('%Y/%m/%d') not in self.daily_di:
+                self.daily_di[date.strftime('%Y/%m/%d')] = {}
+                for key in self.task_di:
+                    self.daily_di[date.strftime('%Y/%m/%d')][key] = False
+            else:
+                break
+            date -= datetime.timedelta(days=1)
+        self.write_daily()
+
 
     # メイン画面へ遷移する関数--------------------------------------------------------------------------------
     def display_main(event,self):
