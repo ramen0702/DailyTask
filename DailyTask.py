@@ -14,13 +14,13 @@ class App(customtkinter.CTk):
         super().__init__()
 
         # ウィンドウの設定-----------------------------------------------------------------------------
-        self.title("Daily Task")
+        self.title("DailyTask")
         self.geometry(f"{1100}x{580}+{100}+{100}")
-        self.minsize(300, 580)
+        self.minsize(1100, 580)
 
         # ウィンドウレイアウトの設定(4×4)------------------------------------------------------------------------------------------
-        self.grid_rowconfigure((0,1,2,3,4), weight=1)
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure((2,3,4), weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
         # 画面状態を記憶する変数
         # 1:メイン,2:追加,3:削除,4:グラフ
@@ -28,7 +28,7 @@ class App(customtkinter.CTk):
 
         # メニューバー(左)の表示------------------------------------------------------------------------------------------
         # レイアウトの設定
-        self.menu_names = ["追加","削除","グラフ"]
+        self.menu_names = ["追加","削除","設定"]
         self.menubar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.menubar_frame.grid(row=0,column=0,rowspan=5,sticky="nsew")
         for i in range(len(self.menu_names)+5):
@@ -43,8 +43,8 @@ class App(customtkinter.CTk):
         self.menu_button[0].configure(command=self.add_task_button)
         # 削除ボタン
         self.menu_button[1].configure(command=self.remove_task_button)
-        # グラフボタン
-        self.menu_button[2].configure(command=self.graph_button)
+        # 設定ボタン
+        self.menu_button[2].configure(command=self.config_button)
         for i in range(len(self.menu_names)):
             self.menu_button[i].grid(row=i+1, column=0, padx=50, pady=0,)
 
@@ -63,17 +63,20 @@ class App(customtkinter.CTk):
         # 開始日から今日までの日付をall_dateに格納
         self.get_all_date()
 
+        # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける
+        self.set_false_date()
+
         # 日付フレーム(右上)の表示
         self.display_topbar()
 
         # ソートフレームを表示
         self.display_sort_menu()
 
+        # グラフメニューを表示
+        self.display_graph_menu()
+
         # タスクフレーム(右,右下)の表示
         self.display_taskbar()
-
-        # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける
-        self.set_false_date()
 
         # タスクの通知時間を並べたリストを作成
         self.set_task_times()
@@ -85,7 +88,7 @@ class App(customtkinter.CTk):
     def is_task_time(self):
         dt_now = datetime.datetime.now()
         now = dt_now.time()
-        for key in self.task_times:
+        for key in list(self.task_times.keys()):
             h,m = map(int,self.task_times[key].split(":"))
             task_time = datetime.time(h,m,0)
             if now >= task_time:
@@ -96,17 +99,11 @@ class App(customtkinter.CTk):
     # ダークモードとライトモードを切り替える関数------------------------------------------------------------------------------------------
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
-        if self.screen_id == 4:
-            self.remove_gird()
-            self.display_graph()
-        elif self.screen_id == 1:
-            self.remove_gird()
+        if self.screen_id == 1:
+            self.remove_grid()
             self.display_topbar()
             self.display_sort_menu()
-            self.display_taskbar()
-            self.remove_gird()
-            self.display_topbar()
-            self.display_sort_menu()
+            self.display_graph_menu()
             self.display_taskbar()
 
     # daily.jsonを読み込む関数------------------------------------------------------------------------------------------
@@ -149,7 +146,7 @@ class App(customtkinter.CTk):
     def display_topbar(self):
         # レイアウトの設定
         self.topbar_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.topbar_frame.grid(row=0,column=1,padx=20,pady=20,sticky="ew")
+        self.topbar_frame.grid(row=0,column=1,columnspan = 2,padx=20,pady=20,sticky="ew")
         self.topbar_frame.grid_columnconfigure(1, weight=1)
         self.topbar_frame.grid_columnconfigure((0,2), weight=0)
         # 本日の日付を表示
@@ -157,7 +154,7 @@ class App(customtkinter.CTk):
         self.dt_now = datetime.datetime.now()
         initial_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d')+self.week[self.dt_now.weekday()])
         self.date_combobox = customtkinter.CTkOptionMenu(self.topbar_frame,values=self.all_date, variable=initial_date
-        ,command=self.change_date_event,font=customtkinter.CTkFont(size=30, weight="bold") ,anchor = "center")
+        ,command=self.change_date_event,font=customtkinter.CTkFont(size=30, weight="bold") ,anchor = "center",)
         self.date_combobox.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
         # 進む、戻るボタンの表示
         self.prev_button = customtkinter.CTkButton(self.topbar_frame, text="◀"
@@ -173,19 +170,46 @@ class App(customtkinter.CTk):
     # ソートフレームを表示する関数------------------------------------------------------------------------------------------
     def display_sort_menu(self):
         self.sort_frame = customtkinter.CTkFrame(self,width = 500,corner_radius=0)
-        self.sort_frame.grid(row=1,column=1,padx=20,sticky="ne")
-        sort_list = ["辞書","追加日"]
-        self.sort_combobox = customtkinter.CTkOptionMenu(self.sort_frame,values=sort_list,font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),anchor = "center",command=self.display_tasks)
+        self.sort_frame.grid(row=1,column=1,padx=20,sticky="nw")
+        sort_list = ["重要度","タグ","追加日","名前"]
+        self.sort_combobox = customtkinter.CTkOptionMenu(self.sort_frame,values=sort_list,font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),anchor = "center",command=self.display_tasks
+        ,dropdown_font=customtkinter.CTkFont(size=25,family="メイリオ"))
         self.sort_combobox.grid(row=0, column = 0, padx=10,pady=5,sticky="nsew") 
-        self.sort_checkbox = customtkinter.CTkCheckBox(self.sort_frame,text="降順",font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),command=self.display_taskbar)
+        self.sort_checkbox = customtkinter.CTkCheckBox(self.sort_frame,text="降順",font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),command=self.update_task)
         self.sort_checkbox.grid(row=0, column = 1, padx=10,pady=5,sticky="nsew") 
+        self.sort_checkbox.select()
 
     def display_tasks(self,choice):
+        self.main_frame.grid_forget()
+        self.tmp_frame.grid_forget()
+        self.main_canvas.grid_forget()
+        self.scrollbar.grid_forget()
+        for i in range(2):
+            self.item_label[i].grid_forget()
+        for i in range(len(self.now_date_task_di)):
+            self.task_checkbox[i].grid_forget()
+            self.task_label[i].grid_forget()
+        if self.graph_checkbox.get() == 1:
+            self.graph_frame.grid_forget()
+        self.display_taskbar()
+    
+    def update_task(self):
+        self.main_frame.grid_forget()
+        self.tmp_frame.grid_forget()
+        self.main_canvas.grid_forget()
+        self.scrollbar.grid_forget()
+        for i in range(2):
+            self.item_label[i].grid_forget()
+        for i in range(len(self.now_date_task_di)):
+            self.task_checkbox[i].grid_forget()
+            self.task_label[i].grid_forget()
+        if self.graph_checkbox.get() == 1:
+            self.graph_frame.grid_forget()
         self.display_taskbar()
 
     def sort_task(self):
         self.task_names = []
-        if self.sort_combobox.get() == "辞書":
+        if self.sort_combobox.get() == "名前":
             for name in self.now_date_task_di:
                 self.task_names.append(name)
             if self.sort_checkbox.get() == 1:
@@ -195,73 +219,273 @@ class App(customtkinter.CTk):
         elif self.sort_combobox.get() == "追加日":
             tmp = []
             for name in self.now_date_task_di:
-                tmp.append([self.task_di[name]["date"],name])
+                if name in self.task_di:
+                    tmp.append([self.task_di[name]["date"],name])
+                else:
+                    tmp.append([self.min_date,name])
             if self.sort_checkbox.get() == 1:
                 tmp.sort(reverse=True)
             else:
                 tmp.sort()
             for i in range(len(tmp)):
                 self.task_names.append(tmp[i][1])
+        elif self.sort_combobox.get() == "重要度":
+            tmp = []
+            for name in self.now_date_task_di:
+                if name in self.task_di:
+                    tmp.append([self.task_di[name]["imp"],name])
+                else:
+                    tmp.append([0,name])
+            if self.sort_checkbox.get() == 1:
+                tmp.sort(reverse=True)
+            else:
+                tmp.sort()
+            for i in range(len(tmp)):
+                self.task_names.append(tmp[i][1])
+        elif self.sort_combobox.get() == "タグ":
+            tmp = []
+            for name in self.now_date_task_di:
+                if name in self.task_di:
+                    if self.task_di[name]["tag"] == "生活":
+                        tmp.append([3,name])
+                    elif self.task_di[name]["tag"] == "学校/仕事":
+                        tmp.append([2,name])
+                    elif self.task_di[name]["tag"] == "趣味":
+                        tmp.append([1,name])
+                    else:
+                        tmp.append([0,name])
+                else:
+                    tmp.append([0,name])
+            if self.sort_checkbox.get() == 1:
+                tmp.sort(reverse=True)
+            else:
+                tmp.sort()
+            for i in range(len(tmp)):
+                self.task_names.append(tmp[i][1])
+    
+    # グラフを表示するか設定するボタンを表示する関数------------------------------------------------------------------------------------------
+    def display_graph_menu(self):
+        self.is_graph_frame = customtkinter.CTkFrame(self,width = 500,corner_radius=0)
+        self.is_graph_frame.grid(row=1,column=2,padx=20,sticky="ne")
+        self.graph_checkbox = customtkinter.CTkCheckBox(self.is_graph_frame,text="グラフ表示",font=customtkinter.CTkFont(size=25,family="メイリオ",weight="bold"),command=self.update_graph)
+        self.graph_checkbox.grid(row=0, column = 0, padx=10,pady=5,sticky="nsew") 
+        self.graph_checkbox.select()
+
+    def update_graph(self):
+        self.main_frame.grid_forget()
+        self.tmp_frame.grid_forget()
+        self.main_canvas.grid_forget()
+        self.scrollbar.grid_forget()
+        for i in range(2):
+            self.item_label[i].grid_forget()
+        for i in range(len(self.now_date_task_di)):
+            self.task_checkbox[i].grid_forget()
+            self.task_label[i].grid_forget()
+        if self.graph_checkbox.get() != 1:
+            self.graph_frame.grid_forget()
+        self.display_taskbar()
 
     # タスクフレーム(右,右下)を表示する関数------------------------------------------------------------------------------------------
     def display_taskbar(self):
-        # レイアウトの設定
-        # tmp_frameにcanvasとscrollbarが配置され、canvasにmain_frameの内容を表示する
-        # scrollbarはcanvasを動かし、同時にmain_frameもスライドする
-        self.tmp_frame = customtkinter.CTkFrame(self, height=500, corner_radius=0)
-        self.tmp_frame.grid(row=2,column=1,rowspan=3,padx=20,pady=20,sticky="nsew")
-        self.tmp_frame.grid_columnconfigure(0,weight=1)
-        self.tmp_frame.grid_rowconfigure(0,weight=1)
-        if self._get_appearance_mode() == "dark":
-            self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray17", highlightthickness=0)
-        else:
-            self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray87", highlightthickness=0)
-        self.main_canvas.grid(row=0,column=0,sticky="nsew")
-        self.main_canvas.grid_columnconfigure(0,weight=1)
-        self.main_canvas.grid_rowconfigure(0,weight=1)
-        self.main_frame = customtkinter.CTkFrame(self.main_canvas,corner_radius=0)
-        # 現在開いている日付の、タスク名と真偽値をtask.jsonから参照し、
-        # now_date_task_diに辞書型として記録
-        self.read_task()
-        self.sort_task()
-        # 項目名の表示
-        item_names = ["達成　　　","タスク名"]
-        self.item_label = [customtkinter.CTkLabel(
-            self.main_frame
-            , text=name
-            , font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"))
-            for name in item_names]
-        for i in range(len(item_names)):
-            self.main_frame.grid_columnconfigure(i, weight=1)
-            self.item_label[i].grid(row=0, column=i, padx=0, pady=5)
-        # チェックボックスの表示
-        self.task_checkbox = [customtkinter.CTkCheckBox(master=self.main_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.now_date_task_di))]
-        for i,key in enumerate(self.task_names):
-            self.task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
-            # もし真偽値が真ならチェックを入れる
-            if self.now_date_task_di[key]:
-                self.task_checkbox[i].select()
-        # タスク名の表示
-        self.task_label = [customtkinter.CTkLabel(
-            self.main_frame
-            , text=name
-            , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
-            for name in self.task_names]
-        for i in range(len(self.now_date_task_di)):
-            self.task_label[i].grid(row=i+1, column=1, padx=0, pady=10)
-        # scrollbarを作成・配置し、canvasと紐づける
-        self.main_frame.grid_rowconfigure((0,1,2,3,4,5,6,7), weight=1)
-        self.scrollbar = tkinter.Scrollbar(self.tmp_frame, orient=tkinter.VERTICAL, command=self.main_canvas.yview)
-        self.main_canvas.config(yscrollcommand=self.scrollbar.set)
-        self.scrollbar.grid(row=0, column=1, sticky=(tkinter.N, tkinter.S))
-        # canvasの横幅を取得し、横幅に合わせてframeを描画
-        self.update()
-        canvas_width = self.main_canvas.winfo_width()
-        self.main_canvas.create_window((0,0), window=self.main_frame, anchor="nw",width=canvas_width)
-        # Frameの大きさを確定してCanvasにスクロール範囲を設定
-        self.main_frame.update_idletasks()
-        self.main_canvas.config(scrollregion=self.main_canvas.bbox("all"))
+        if self.graph_checkbox.get() == 1:
+            # レイアウトの設定
+            # tmp_frameにcanvasとscrollbarが配置され、canvasにmain_frameの内容を表示する
+            # scrollbarはcanvasを動かし、同時にmain_frameもスライドする
+            self.tmp_frame = customtkinter.CTkFrame(self, corner_radius=0)
+            self.tmp_frame.grid(row=2,column=1,rowspan=3,padx=20,pady=20,sticky="nsew")
+            self.tmp_frame.grid_columnconfigure(0,weight=1)
+            self.tmp_frame.grid_rowconfigure(0,weight=1)
+            if self._get_appearance_mode() == "dark":
+                self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray17", highlightthickness=0)
+            else:
+                self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray87", highlightthickness=0)
+            self.main_canvas.grid(row=0,column=0,sticky="nsew")
+            self.main_canvas.grid_columnconfigure(0,weight=1)
+            self.main_canvas.grid_rowconfigure(0,weight=1)
+            self.main_frame = customtkinter.CTkFrame(self.main_canvas,corner_radius=0)
+            # 現在開いている日付の、タスク名と真偽値をtask.jsonから参照し、
+            # now_date_task_diに辞書型として記録
+            self.read_task()
+            self.sort_task()
+            # 項目名の表示
+            item_names = ["達成　 　","タスク名"]
+            self.item_label = [customtkinter.CTkLabel(
+                self.main_frame
+                , text=name
+                , font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"))
+                for name in item_names]
+            # for i in range(len(item_names)):
+            self.main_frame.grid_columnconfigure((0,1,2,3), weight=1)
+            self.item_label[0].grid(row=0, column=0, padx=0, pady=5,sticky="e")
+            self.item_label[1].grid(row=0, column=1, columnspan = 3,padx=0, pady=5,sticky="w")
+            # チェックボックスの表示
+            self.task_checkbox = [customtkinter.CTkSwitch(master=self.main_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.now_date_task_di))]
+            for i,key in enumerate(self.task_names):
+                self.task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,sticky="e")
+                # もし真偽値が真ならチェックを入れる
+                if self.now_date_task_di[key]:
+                    self.task_checkbox[i].select()
+            # タスク名の表示
+            self.task_label = [customtkinter.CTkLabel(
+                self.main_frame
+                , text=name
+                , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
+                for name in self.task_names]
+            for i,name in enumerate(self.task_names):
+                if name in self.task_di:
+                    if self.task_di[name]["tag"] == "生活":
+                        self.task_label[i].configure(text_color="green2")
+                    elif self.task_di[name]["tag"] == "学校/仕事":
+                        self.task_label[i].configure(text_color="cyan")
+                    elif self.task_di[name]["tag"] == "趣味":
+                        self.task_label[i].configure(text_color="dark orange")
+            for i in range(len(self.now_date_task_di)):
+                self.task_label[i].grid(row=i+1, column=1, columnspan = 3,padx=0, pady=5,sticky="w")
+            # scrollbarを作成・配置し、canvasと紐づける
+            self.main_frame.grid_rowconfigure((0,1,2,3,4,5,6,7), weight=1)
+            self.scrollbar = tkinter.Scrollbar(self.tmp_frame, orient=tkinter.VERTICAL, command=self.main_canvas.yview)
+            self.main_canvas.config(yscrollcommand=self.scrollbar.set)
+            self.scrollbar.grid(row=0, column=1, sticky=(tkinter.N, tkinter.S))
+            # canvasの横幅を取得し、横幅に合わせてframeを描画
+            self.update()
+            canvas_width = self.main_canvas.winfo_width()
+            self.main_canvas.create_window((0,0), window=self.main_frame, anchor="nw",width=canvas_width)
+            # Frameの大きさを確定してCanvasにスクロール範囲を設定
+            self.main_frame.update_idletasks()
+            self.main_canvas.config(scrollregion=self.main_canvas.bbox("all"))
 
+
+
+            # matplotlib配置用フレーム
+            self.graph_frame = customtkinter.CTkFrame(self,)
+            self.graph_frame.grid(row=2,column=2,rowspan = 3,padx=20,pady=20,sticky="nsew")
+            # matplotlibの描画領域の作成
+            if self._get_appearance_mode() == "dark":
+                fig = Figure(tight_layout=True,facecolor="0.2", edgecolor="white")
+            else:
+                fig = Figure(tight_layout=True)
+            # 座標軸の作成
+            self.ax = fig.add_subplot(111)
+            if self._get_appearance_mode() == "dark":
+                self.ax.set_facecolor("0.2")
+                self.ax.spines['bottom'].set_color('white')
+                self.ax.spines['top'].set_color('white')
+                self.ax.spines['left'].set_color('white')
+                self.ax.spines['right'].set_color('white')
+                self.ax.xaxis.label.set_color('white')
+                self.ax.yaxis.label.set_color('white')
+                self.ax.tick_params(axis='x', colors='white')
+                self.ax.tick_params(axis='y', colors='white')
+            else:
+                self.ax.tick_params(axis='x')
+                self.ax.tick_params(axis='y')
+            self.ax.set_xlabel("日付", fontname="MS Gothic")
+            self.ax.set_ylabel("達成率(%)", fontname="MS Gothic")
+            self.ax.set_ylim(0, 100)
+            # matplotlibの描画領域とウィジェット(Frame)の関連付け
+            self.fig_canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+            # matplotlibのグラフをフレームに配置
+            self.fig_canvas.get_tk_widget().pack(fill=customtkinter.BOTH, expand=True)
+            # daily.jsonを読み込んdaily_diへ
+            self.sort_date = sorted(self.daily_di,reverse=True)
+            # sort_dateがdt_nowと一致するインデックスを探索
+            dt_index = self.sort_date.index(self.dt_now.strftime('%Y/%m/%d'))
+            y = []
+            x = []
+            i = dt_index
+            while i < dt_index+7:
+                if i >= len(self.sort_date):
+                    break
+                date = self.sort_date[i]
+                x.append(date[-5:])
+                date_count = len(self.daily_di[date])
+                ok_count = 0
+                for name in self.daily_di[date]:
+                    if self.daily_di[date][name]:
+                        ok_count += 1
+                if date_count != 0:
+                    percent = ok_count / date_count * 100
+                else:
+                    percent = 0
+                y.append(percent)
+                i+=1
+            x = x[::-1]
+            y = y[::-1]
+            self.ax.set_xticks(list(range(len(x))))
+            self.ax.set_xticklabels(x,fontfamily="MS Gothic")
+            # グラフの描画
+            self.ax.plot(x, y, marker='o')
+            for i, value in enumerate(y):
+                if self._get_appearance_mode() == "dark":
+                    self.ax.text(x[i], y[i]+3, round(value),color='white')
+                else:
+                    self.ax.text(x[i], y[i]+3, round(value))
+        else:
+            # レイアウトの設定
+            # tmp_frameにcanvasとscrollbarが配置され、canvasにmain_frameの内容を表示する
+            # scrollbarはcanvasを動かし、同時にmain_frameもスライドする
+            self.tmp_frame = customtkinter.CTkFrame(self, corner_radius=0)
+            self.tmp_frame.grid(row=2,column=1,rowspan=3,columnspan = 2,padx=20,pady=20,sticky="nsew")
+            self.tmp_frame.grid_columnconfigure(0,weight=1)
+            self.tmp_frame.grid_rowconfigure(0,weight=1)
+            if self._get_appearance_mode() == "dark":
+                self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray17", highlightthickness=0)
+            else:
+                self.main_canvas = tkinter.Canvas(self.tmp_frame, background = "gray87", highlightthickness=0)
+            self.main_canvas.grid(row=0,column=0,sticky="nsew")
+            self.main_canvas.grid_columnconfigure(0,weight=1)
+            self.main_canvas.grid_rowconfigure(0,weight=1)
+            self.main_frame = customtkinter.CTkFrame(self.main_canvas,corner_radius=0)
+            # 現在開いている日付の、タスク名と真偽値をtask.jsonから参照し、
+            # now_date_task_diに辞書型として記録
+            self.read_task()
+            self.sort_task()
+            # 項目名の表示
+            item_names = ["達成　　　","タスク名"]
+            self.item_label = [customtkinter.CTkLabel(
+                self.main_frame
+                , text=name
+                , font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"))
+                for name in item_names]
+            for i in range(len(item_names)):
+                self.main_frame.grid_columnconfigure(i, weight=1)
+                self.item_label[i].grid(row=0, column=i, padx=0, pady=5)
+            # チェックボックスの表示
+            self.task_checkbox = [customtkinter.CTkSwitch(master=self.main_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.now_date_task_di))]
+            for i,key in enumerate(self.task_names):
+                self.task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
+                # もし真偽値が真ならチェックを入れる
+                if self.now_date_task_di[key]:
+                    self.task_checkbox[i].select()
+            # タスク名の表示
+            self.task_label = [customtkinter.CTkLabel(
+                self.main_frame
+                , text=name
+                , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
+                for name in self.task_names]
+            for i,name in enumerate(self.task_names):
+                if name in self.task_di:
+                    if self.task_di[name]["tag"] == "生活":
+                        self.task_label[i].configure(text_color="green2")
+                    elif self.task_di[name]["tag"] == "学校/仕事":
+                        self.task_label[i].configure(text_color="cyan")
+                    elif self.task_di[name]["tag"] == "趣味":
+                        self.task_label[i].configure(text_color="dark orange")
+            for i in range(len(self.now_date_task_di)):
+                self.task_label[i].grid(row=i+1, column=1, padx=0, pady=10)
+            # scrollbarを作成・配置し、canvasと紐づける
+            self.main_frame.grid_rowconfigure((0,1,2,3,4,5,6,7), weight=1)
+            self.scrollbar = tkinter.Scrollbar(self.tmp_frame, orient=tkinter.VERTICAL, command=self.main_canvas.yview)
+            self.main_canvas.config(yscrollcommand=self.scrollbar.set)
+            self.scrollbar.grid(row=0, column=1, sticky=(tkinter.N, tkinter.S))
+            # canvasの横幅を取得し、横幅に合わせてframeを描画
+            self.update()
+            canvas_width = self.main_canvas.winfo_width()
+            self.main_canvas.create_window((0,0), window=self.main_frame, anchor="nw",width=canvas_width)
+            # Frameの大きさを確定してCanvasにスクロール範囲を設定
+            self.main_frame.update_idletasks()
+            self.main_canvas.config(scrollregion=self.main_canvas.bbox("all"))
+        
     # task.jsonを読み込み、表示中の日付のtask名と真偽値をself.now_date_task_diに格納する関数------------------------------------------------------------------------------------------
     def read_task(self):
         # task.jsonを読み込み、task_diという辞書に記録する
@@ -290,6 +514,8 @@ class App(customtkinter.CTk):
     
     # 現在日から最後に起動した翌日までさかのぼって、daily.jsonにtask名とFalseを付ける関数------------------------------------------------------------------------------------------
     def set_false_date(self):
+        self.dt_now = datetime.datetime.now()
+        self.read_task()
         if self.dt_now.strftime('%Y/%m/%d') == self.min_date:
             return
         date = self.dt_now - datetime.timedelta(days=1)
@@ -320,24 +546,31 @@ class App(customtkinter.CTk):
     # メイン画面へ遷移する関数--------------------------------------------------------------------------------
     def display_main(event,self):
         # 不必要なフレームを削除
-        event.remove_gird()
+        event.remove_grid()
         # 日付フレーム(右上)の表示
         event.display_topbar()
         # ソートフレームを表示
         event.display_sort_menu()
+        # グラフメニューを表示
+        event.display_graph_menu()
         # タスク欄の表示
         event.display_taskbar()
         # 画面状態を更新
         event.screen_id = 1
     
     # 不必要なフレームを削除する関数--------------------------------------------------------------------------------
-    def remove_gird(self):
+    def remove_grid(self):
         if self.screen_id == 1:
             self.topbar_frame.grid_forget()
             self.date_combobox.grid_forget()
             self.prev_button.grid_forget()
             self.next_button.grid_forget()
             self.main_frame.grid_forget()
+            self.tmp_frame.grid_forget()
+            self.main_canvas.grid_forget()
+            self.scrollbar.grid_forget()
+            if self.graph_checkbox.get() == 1:
+                self.graph_frame.grid_forget()
             for i in range(2):
                 self.item_label[i].grid_forget()
             for i in range(len(self.now_date_task_di)):
@@ -346,6 +579,9 @@ class App(customtkinter.CTk):
             self.sort_frame.grid_forget()
             self.sort_combobox.grid_forget()
             self.sort_checkbox.grid_forget()
+            self.graph_frame.grid_forget()
+            self.is_graph_frame.grid_forget()
+            self.graph_checkbox.grid_forget()
         elif self.screen_id == 2:
             self.add_frame.grid_forget()
             self.add_task_frame.grid_forget()
@@ -360,6 +596,10 @@ class App(customtkinter.CTk):
             for i in range(2):
                 self.add_time_label[i].grid_forget()
                 self.add_time_combobox[i].grid_forget()
+            self.add_imp_label.grid_forget()
+            self.add_imp_slider.grid_forget()
+            self.add_tag_label.grid_forget()
+            self.add_tag_combobox.grid_forget()
         elif self.screen_id == 3:
             self.remove_frame.grid_forget()
             for i in range(2):
@@ -369,11 +609,29 @@ class App(customtkinter.CTk):
                 self.remove_task_label[i].grid_forget()
             self.remove_ok_button.grid_forget()
         elif self.screen_id == 4:
-            self.graph_frame.grid_forget()
-            self.graph_date_frame.grid_forget()
-            self.date_label.grid_forget()
-            self.graph_prev_button.grid_forget()
-            self.graph_next_button.grid_forget()
+            self.config_frame.grid_forget()
+            self.config_label.grid_forget()
+            self.config_name_button.grid_forget()
+            for i in range(len(self.today_date_task)):
+                self.radiobutton[i].grid_forget()
+        elif self.screen_id == 5:
+            self.config_add_frame.grid_forget()
+            self.config_add_task_frame.grid_forget()
+            self.config_add_name_label.grid_forget()
+            self.config_add_name_entry.grid_forget()
+            self.config_add_ok_button.grid_forget()
+            self.config_add_weekly_label.grid_forget()
+            self.config_checkbox_frame.grid_forget()
+            self.config_time_frame.grid_forget()
+            for i in range(7):
+                self.config_add_weekly_checkbox[i].grid_forget()
+            for i in range(2):
+                self.config_add_time_label[i].grid_forget()
+                self.config_add_time_combobox[i].grid_forget()
+            self.config_add_imp_label.grid_forget()
+            self.config_add_imp_slider.grid_forget()
+            self.config_add_tag_label.grid_forget()
+            self.config_add_tag_combobox.grid_forget()
 
     # チェックボックスを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def task_checkbox_event(self):
@@ -398,6 +656,8 @@ class App(customtkinter.CTk):
                     self.daily_di[self.dt_now.strftime('%Y/%m/%d')][self.task_label[i].cget("text")] = True
         # dayly.jsonへファイル書き込みを行い、更新する
         self.write_daily()
+        # taskフレームを更新
+        self.update_task()
 
     # daily.jsonにファイル書き込みを行う関数--------------------------------------------------------------------------------------------------------
     def write_daily(self):
@@ -434,7 +694,7 @@ class App(customtkinter.CTk):
         new_date = customtkinter.StringVar(value=self.dt_now.strftime('%Y/%m/%d') +self.week[self.dt_now.weekday()])
         self.date_combobox.configure(variable=new_date)
         # タスクバーの更新表示
-        self.display_taskbar()
+        self.update_task()
         # 更新後の表示日数と、現実の日数が同じならば、未来へいけないように進むボタンを無向化
         # 更新後の表示日数と、現実の日数が同じゃなければ、タスクのチェックボタンを無向化
         if self.dt_now.strftime('%Y/%m/%d') == datetime.datetime.now().strftime('%Y/%m/%d'):
@@ -462,18 +722,18 @@ class App(customtkinter.CTk):
     # タスク追加ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
     def add_task_button(self):
         # 不要なフレームを削除
-        self.remove_gird()
+        self.remove_grid()
         # 画面状態を更新
         self.screen_id = 2
         # レイアウトの設定
         self.add_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.add_frame.grid(row=0,column=1,rowspan=5,padx=20,pady=20,sticky="nsew")
-        self.add_frame.grid_rowconfigure((0,1,2,3), weight=1)
+        self.add_frame.grid(row=0,column=1,columnspan=2,rowspan=5,padx=20,pady=20,sticky="nsew")
+        self.add_frame.grid_rowconfigure((0,1,2,3,4,5), weight=1)
         self.add_frame.grid_columnconfigure((0,1), weight=1)
         # タスク名入力を促すフレーム
         self.add_task_frame = customtkinter.CTkFrame(self.add_frame, height=140, corner_radius=0)
-        self.add_task_frame.grid(row=0,column=0,rowspan=3,columnspan=2,padx=50,pady=50,sticky="nsew")
-        self.add_task_frame.grid_rowconfigure((0,1,2), weight=1)
+        self.add_task_frame.grid(row=0,column=0,rowspan=5,columnspan=2,padx=50,pady=50,sticky="nsew")
+        self.add_task_frame.grid_rowconfigure((0,1,2,3,4), weight=1)
         self.add_task_frame.grid_columnconfigure((0,1), weight=1)
         self.add_name_label = customtkinter.CTkLabel(self.add_task_frame, text="タスク名",font=customtkinter.CTkFont(family="メイリオ",size=25))
         self.add_name_label.grid(row=0, column=0)
@@ -490,9 +750,9 @@ class App(customtkinter.CTk):
             self.add_weekly_checkbox[i].grid(row=0, column=i)
             self.add_weekly_checkbox[i].select()
         self.add_time_label = customtkinter.CTkLabel(self.add_task_frame, text="通知時間",font=customtkinter.CTkFont(family="メイリオ",size=25))
-        self.add_time_label.grid(row=2, column=0)
+        self.add_time_label.grid(row=4, column=0)
         self.time_frame = customtkinter.CTkFrame(self.add_task_frame,corner_radius=0)
-        self.time_frame.grid(row=2,column=1)
+        self.time_frame.grid(row=4,column=1)
         self.time_frame.grid_columnconfigure((0,1,2,3), weight=1)
         self.add_time_label = [customtkinter.CTkLabel(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=20),width=35) for _ in range(2)]
         self.add_time_combobox = [customtkinter.CTkComboBox(self.time_frame,font=customtkinter.CTkFont(family="メイリオ",size=15),width=80) for _ in range(2)]
@@ -508,16 +768,28 @@ class App(customtkinter.CTk):
         self.add_time_combobox[1].configure(values=minute)
         self.add_time_combobox[1].grid(row=0, column=2)
         self.add_time_combobox[1].set("0")
+        self.add_imp_label = customtkinter.CTkLabel(self.add_task_frame, text="重要度(50)",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.add_imp_label.grid(row=3, column=0)
+        self.add_imp_slider = customtkinter.CTkSlider(self.add_task_frame, from_=0, to=100,width=420,command=self.slider_event)
+        self.add_imp_slider.grid(row=3, column=1)
+        self.add_tag_label = customtkinter.CTkLabel(self.add_task_frame, text="タグ",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.add_tag_label.grid(row=2, column=0)
+        self.add_tag_combobox = customtkinter.CTkOptionMenu(self.add_task_frame,font=customtkinter.CTkFont(size=25,family="メイリオ"),width=420,values=["生活","学校/仕事","趣味","その他"]
+            ,dropdown_font=customtkinter.CTkFont(size=25,family="メイリオ"),anchor = "center")
+        self.add_tag_combobox.grid(row=2, column=1)
         # 追加確定ボタン
         self.add_ok_button = customtkinter.CTkButton(self.add_frame,text="追加", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.add_ok_event)
-        self.add_ok_button.grid(row=3, column=1,)
+        self.add_ok_button.grid(row=5, column=1,)
+    
+    def slider_event(self,value):
+        self.add_imp_label.configure(text="重要度("+str(int(value))+")")
 
     # 追加確定ボタンを押したとき用の関数--------------------------------------------------------------------------------------------------------
     def add_ok_event(self):
         # taskが正しく追加されているか判断。正しくなければ追加しせず通知
         task_name = self.add_name_entry.get()
-        if len(task_name.encode('shift_jis')) < 1 or 16 < len(task_name.encode('shift_jis')):
-            self.display_error("1バイト以上16バイト以下のタスク名を設定してください")
+        if len(task_name.encode('shift_jis')) < 1 or 14 < len(task_name.encode('shift_jis')):
+            self.display_error("1バイト以上14バイト以下のタスク名を設定してください")
             return
         if task_name in self.task_di:
             self.display_error("すでにその名前は使われています")
@@ -541,13 +813,16 @@ class App(customtkinter.CTk):
             return
         # task_diに、新しく追加するtaskの情報を格納
         self.task_di[task_name] = {}
-        self.task_di[task_name]["date"] = self.dt_now.strftime('%Y/%m/%d')
+        dt_now = datetime.datetime.now()
+        self.task_di[task_name]["date"] = dt_now.strftime('%Y/%m/%d')
         self.task_di[task_name]["week"] = weekly_index
         self.task_di[task_name]["notice_time"] = str(h)+":"+str(m)
+        self.task_di[task_name]["imp"] = int(self.add_imp_slider.get())
+        self.task_di[task_name]["tag"] = self.add_tag_combobox.get()
         # 格納したデータをtask.jsonにファイル書き込み
         self.write_task()
         # daily_diにもtask名とfalseを格納
-        if self.dt_now.weekday() in self.task_di[task_name]["week"]:
+        if dt_now.weekday() in self.task_di[task_name]["week"]:
             if datetime.datetime.now().strftime('%Y/%m/%d') not in self.daily_di:
                 self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')] = {}
             self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')][task_name] = False
@@ -557,11 +832,12 @@ class App(customtkinter.CTk):
         self.set_task_times()
         # 画面遷移
         # タスク追加画面をフレームをすべて削除
-        self.remove_gird()
+        self.remove_grid()
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
         self.screen_id = 1
         self.display_topbar()
         self.display_sort_menu()
+        self.display_graph_menu()
         self.display_taskbar()
     
     def display_error(self,S):
@@ -577,12 +853,12 @@ class App(customtkinter.CTk):
     # タスク削除ボタン用の関数-----------------------------------------------------------------------------------------------------------------------------------
     def remove_task_button(self):
         # 不要なフレームを削除
-        self.remove_gird()
+        self.remove_grid()
         # 画面状態を更新
         self.screen_id = 3
         # レイアウトの設定
         self.remove_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
-        self.remove_frame.grid(row=0,column=1,rowspan=5,padx=20,pady=20,sticky="nsew")
+        self.remove_frame.grid(row=0,column=1,columnspan=2,rowspan=5,padx=20,pady=20,sticky="nsew")
         # self.task_diからタスク名を参照し、today_date_taskにリストとして記録
         self.today_date_task = []
         for name in self.task_di:
@@ -600,7 +876,7 @@ class App(customtkinter.CTk):
             self.remove_frame.grid_columnconfigure(i, weight=1)
             self.remove_item_label[i].grid(row=0, column=i, padx=0, pady=5)
         # チェックボックスの表示
-        self.remove_task_checkbox = [customtkinter.CTkCheckBox(master=self.remove_frame,text="",command=self.task_checkbox_event) for _ in range(len(self.today_date_task))]
+        self.remove_task_checkbox = [customtkinter.CTkSwitch(master=self.remove_frame,text="") for _ in range(len(self.today_date_task))]
         for i in range(len(self.today_date_task)):
             self.remove_task_checkbox[i].grid(row=i+1, column=0, padx=0, pady=5,)
         # タスク名の表示
@@ -609,6 +885,14 @@ class App(customtkinter.CTk):
             , text=name
             , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
             for name in self.today_date_task]
+        for i,name in enumerate(self.task_names):
+                if name in self.task_di:
+                    if self.task_di[name]["tag"] == "生活":
+                        self.remove_task_label[i].configure(text_color="green2")
+                    elif self.task_di[name]["tag"] == "学校/仕事":
+                        self.remove_task_label[i].configure(text_color="cyan")
+                    elif self.task_di[name]["tag"] == "趣味":
+                        self.remove_task_label[i].configure(text_color="dark orange")
         for i in range(len(self.today_date_task)):
             self.remove_task_label[i].grid(row=i+1, column=1, padx=0, pady=5)
         self.remove_ok_button = customtkinter.CTkButton(self.remove_frame,text="削除", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.remove_ok_event)
@@ -633,141 +917,185 @@ class App(customtkinter.CTk):
         self.write_daily()
         # 画面遷移
         # タスク追加画面をフレームをすべて削除
-        self.remove_gird()
+        self.remove_grid()
         # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
         self.screen_id = 1
         self.display_topbar()
         self.display_sort_menu()
+        self.display_graph_menu()
         self.display_taskbar()
 
-    # グラフボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
-    def graph_button(self):
-        self.dt_now = datetime.datetime.now()
-        self.display_graph()
-
-    def display_graph(self):
+    # 設定ボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
+    def config_button(self):
         # 不要なフレームを削除
-        self.remove_gird()
+        self.remove_grid()
         # 画面状態を更新
         self.screen_id = 4
-        self.display_graph_date()
-        # matplotlib配置用フレーム
-        self.graph_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.graph_frame.grid(row=1,column=1,rowspan = 4,padx=20,pady=20,sticky="nsew")
-        # matplotlibの描画領域の作成
-        if self._get_appearance_mode() == "dark":
-            fig = Figure(facecolor="0.2", edgecolor="white")
-        else:
-            fig = Figure()
-        # 座標軸の作成
-        self.ax = fig.add_subplot(111)
-        if self._get_appearance_mode() == "dark":
-            self.ax.set_facecolor("0.2")
-            self.ax.spines['bottom'].set_color('white')
-            self.ax.spines['top'].set_color('white')
-            self.ax.spines['left'].set_color('white')
-            self.ax.spines['right'].set_color('white')
-            self.ax.xaxis.label.set_color('white')
-            self.ax.yaxis.label.set_color('white')
-            self.ax.tick_params(axis='x', colors='white')
-            self.ax.tick_params(axis='y', colors='white')
-        else:
-            self.ax.tick_params(axis='x')
-            self.ax.tick_params(axis='y')
-        self.ax.set_xlabel("日付", fontname="MS Gothic")
-        self.ax.set_ylabel("達成率(%)", fontname="MS Gothic")
-        self.ax.set_ylim(0, 100)
-        # matplotlibの描画領域とウィジェット(Frame)の関連付け
-        self.fig_canvas = FigureCanvasTkAgg(fig, self.graph_frame)
-        # matplotlibのグラフをフレームに配置
-        self.fig_canvas.get_tk_widget().pack(fill=customtkinter.BOTH, expand=True)
-        # daily.jsonを読み込んdaily_diへ
-        self.sort_date = sorted(self.daily_di,reverse=True)
-        # sort_dateがdt_nowと一致するインデックスを探索
-        dt_index = self.sort_date.index(self.dt_now.strftime('%Y/%m/%d'))
-        y = []
-        x = []
-        i = dt_index
-        while i < dt_index+7:
-            if i >= len(self.sort_date):
-                break
-            date = self.sort_date[i]
-            today = datetime.date(int(date[:4]),int(date[5:7]),int(date[8:]))
-            x.append(date[-5:]+self.week[today.weekday()])
-            date_count = len(self.daily_di[date])
-            ok_count = 0
-            for name in self.daily_di[date]:
-                if self.daily_di[date][name]:
-                    ok_count += 1
-            if date_count != 0:
-                percent = ok_count / date_count * 100
-            else:
-                percent = 0
-            y.append(percent)
-            i+=1
-        x = x[::-1]
-        y = y[::-1]
-        self.ax.set_xticks(list(range(len(x))))
-        self.ax.set_xticklabels(x,fontfamily="MS Gothic")
-        # グラフの描画
-        self.ax.plot(x, y, marker='o')
-        for i, value in enumerate(y):
-            if self._get_appearance_mode() == "dark":
-                self.ax.text(x[i], y[i]+3, round(value),color='white')
-            else:
-                self.ax.text(x[i], y[i]+3, round(value))
-    
-    # グラフの日付フレーム(右上)を表示する関数------------------------------------------------------------------------------------------
-    def display_graph_date(self):
         # レイアウトの設定
-        self.graph_date_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
-        self.graph_date_frame.grid(row=0,column=1,padx=20,pady=20,sticky="nsew")
-        self.graph_date_frame.grid_columnconfigure(1, weight=1)
-        self.graph_date_frame.grid_columnconfigure((0,2), weight=0)
-        # 本日の日付を表示
-        # 表示する日付(可変)はself.dt_nowに格納される(datetime型)
-        self.date_label = customtkinter.CTkLabel(self.graph_date_frame, text="～"+self.dt_now.strftime('%Y/%m/%d')+self.week[self.dt_now.weekday()]
-        , font=customtkinter.CTkFont(size=30, weight="bold"))
-        self.date_label.grid(row=0, column=1, padx=0, pady=10,sticky="nsew")
-        # 進む、戻るボタンの表示
-        self.graph_prev_button = customtkinter.CTkButton(self.graph_date_frame, text="◀"
-        , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.graph_prev_button_event)
-        self.graph_prev_button.grid(row=0, column=0, padx=50, pady=10,)
-        self.graph_next_button = customtkinter.CTkButton(self.graph_date_frame, text="▶"
-        , font=customtkinter.CTkFont(size=15, weight="bold"),command=self.graph_next_button_event,state="disabled")
-        self.graph_next_button.grid(row=0, column=2, padx=50, pady=10,)
-        # もし表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
-        if (self.dt_now - datetime.timedelta(days=7)).strftime('%Y/%m/%d') not in self.daily_di:
-            self.graph_prev_button.configure(state="disabled")      
+        self.config_frame = customtkinter.CTkFrame(self, height=140, corner_radius=0)
+        self.config_frame.grid(row=0,column=1,columnspan=2,rowspan=5,padx=20,pady=20,sticky="nsew")
+        self.config_frame.grid_columnconfigure((0,1), weight=1)
+        self.config_label = customtkinter.CTkLabel(self.config_frame, text="変更するタスクを選択してください", font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
+        self.config_label.grid(row=0,column = 0,columnspan = 2)
+        # self.task_diからタスク名を参照し、today_date_taskにリストとして記録
+        self.today_date_task = []
+        for name in self.task_di:
+            self.today_date_task.append(name)
+        for i in range(len(self.today_date_task)+2):
+            self.config_frame.grid_rowconfigure(i, weight=1)
+        self.radio_var = tkinter.IntVar()
+        self.radiobutton = [customtkinter.CTkRadioButton(self.config_frame,text=name,variable= self.radio_var, value=i
+            ,font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"))
+            for i,name in enumerate(self.today_date_task)]
+        for i,name in enumerate(self.today_date_task):
+            if name in self.task_di:
+                if self.task_di[name]["tag"] == "生活":
+                    self.radiobutton[i].configure(text_color="green2")
+                elif self.task_di[name]["tag"] == "学校/仕事":
+                    self.radiobutton[i].configure(text_color="cyan")
+                elif self.task_di[name]["tag"] == "趣味":
+                    self.radiobutton[i].configure(text_color="dark orange")
+        for i in range(len(self.today_date_task)):
+            self.radiobutton[i].grid(row=i+1,column = 0,columnspan = 2)
+        self.config_name_button = customtkinter.CTkButton(self.config_frame,text="変更", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.config_button2)
+        self.config_name_button.grid(row = len(self.today_date_task)+1,column=1)
     
-    # グラフの進む、戻るボタン関連の関数-----------------------------------------------------------------------------------------------
-    # 翌週に進むボタン
-    def graph_next_button_event(self):
-        # 日付を加算
-        self.dt_now += datetime.timedelta(days=7)
-        self.weekly_func()
+    # 設定ボタンの設定ボタンが押されたとき用の関数--------------------------------------------------------------------------------------------------------
+    def config_button2(self):
+        # task名を取得
+        self.old_name = self.today_date_task[self.radio_var.get()]
+        # 不要なフレームを削除
+        self.remove_grid()
+        # 画面状態を更新
+        self.screen_id = 5
+        # レイアウトの設定
+        self.config_add_frame = customtkinter.CTkFrame(self, height=30, corner_radius=0)
+        self.config_add_frame.grid(row=0,column=1,columnspan=2,rowspan=5,padx=20,pady=20,sticky="nsew")
+        self.config_add_frame.grid_rowconfigure((0,1,2,3,4,5), weight=1)
+        self.config_add_frame.grid_columnconfigure((0,1), weight=1)
+        # タスク名入力を促すフレーム
+        self.config_add_task_frame = customtkinter.CTkFrame(self.config_add_frame, height=140, corner_radius=0)
+        self.config_add_task_frame.grid(row=0,column=0,rowspan=5,columnspan=2,padx=50,pady=50,sticky="nsew")
+        self.config_add_task_frame.grid_rowconfigure((0,1,2,3,4), weight=1)
+        self.config_add_task_frame.grid_columnconfigure((0,1), weight=1)
+        self.config_add_name_label = customtkinter.CTkLabel(self.config_add_task_frame, text="タスク名",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.config_add_name_label.grid(row=0, column=0)
+        self.config_add_name_entry = customtkinter.CTkEntry(self.config_add_task_frame,font=customtkinter.CTkFont(family="メイリオ",size=25),width=420)
+        self.config_add_name_entry.grid(row=0, column=1)
+        # nameを自動入力
+        self.config_add_name_entry.configure(textvariable=tkinter.StringVar(value=self.old_name))
+        self.config_add_weekly_label = customtkinter.CTkLabel(self.config_add_task_frame, text="曜日",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.config_add_weekly_label.grid(row=1, column=0)
+        self.config_checkbox_frame = customtkinter.CTkFrame(self.config_add_task_frame)
+        self.config_checkbox_frame.grid(row=1,column=1)
+        self.config_checkbox_frame.grid_columnconfigure((0,1,2,3,4,5,6), weight=1)
+        self.config_add_weekly_checkbox = [customtkinter.CTkCheckBox(self.config_checkbox_frame,width = 61,font=customtkinter.CTkFont(family="メイリオ",size=20)) for _ in range(7)]
+        # weekを自動入力
+        for i in range(7):
+            self.config_add_weekly_checkbox[i].configure(text=self.week[i][1])
+            self.config_add_weekly_checkbox[i].grid(row=0, column=i)
+            if i in self.task_di[self.old_name]["week"]:
+                self.config_add_weekly_checkbox[i].select()
+        self.config_add_time_label = customtkinter.CTkLabel(self.config_add_task_frame, text="通知時間",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.config_add_time_label.grid(row=4, column=0)
+        self.config_time_frame = customtkinter.CTkFrame(self.config_add_task_frame,corner_radius=0)
+        self.config_time_frame.grid(row=4,column=1)
+        self.config_time_frame.grid_columnconfigure((0,1,2,3), weight=1)
+        self.config_add_time_label = [customtkinter.CTkLabel(self.config_time_frame,font=customtkinter.CTkFont(family="メイリオ",size=20),width=35) for _ in range(2)]
+        self.config_add_time_combobox = [customtkinter.CTkComboBox(self.config_time_frame,font=customtkinter.CTkFont(family="メイリオ",size=15),width=80) for _ in range(2)]
+        self.config_add_time_label[0].configure(text="　時　")
+        self.config_add_time_label[0].grid(row=0, column=1)
+        self.config_add_time_label[1].configure(text="　分　")
+        self.config_add_time_label[1].grid(row=0, column=3)
+        # timeを自動入力
+        hour = [str(i) for i in range(24)]
+        minute = [str(i) for i in range(60)]
+        h,m = self.task_di[self.old_name]["notice_time"].split(":")
+        self.config_add_time_combobox[0].configure(values=hour)
+        self.config_add_time_combobox[0].grid(row=0, column=0)
+        self.config_add_time_combobox[0].set(h)
+        self.config_add_time_combobox[1].configure(values=minute)
+        self.config_add_time_combobox[1].grid(row=0, column=2)
+        self.config_add_time_combobox[1].set(m)
+        # impを自動入力
+        self.config_add_imp_label = customtkinter.CTkLabel(self.config_add_task_frame, text="重要度("+str(self.task_di[self.old_name]["imp"])+")",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.config_add_imp_label.grid(row=3, column=0)
+        self.config_add_imp_slider = customtkinter.CTkSlider(self.config_add_task_frame, from_=0, to=100,width=420,command=self.config_slider_event)
+        self.config_add_imp_slider.grid(row=3, column=1)
+        self.config_add_imp_slider.set(self.task_di[self.old_name]["imp"])
+        self.config_add_tag_label = customtkinter.CTkLabel(self.config_add_task_frame, text="タグ",font=customtkinter.CTkFont(family="メイリオ",size=25))
+        self.config_add_tag_label.grid(row=2, column=0)
+        self.config_add_tag_combobox = customtkinter.CTkOptionMenu(self.config_add_task_frame,font=customtkinter.CTkFont(size=25,family="メイリオ"),width=420,values=["生活","学校/仕事","趣味","その他"]
+            ,dropdown_font=customtkinter.CTkFont(size=25,family="メイリオ"),anchor = "center")
+        self.config_add_tag_combobox.grid(row=2, column=1)
+        # tagを自動設定
+        self.config_add_tag_combobox.set(self.task_di[self.old_name]["tag"])
+        # 追加確定ボタン
+        self.config_add_ok_button = customtkinter.CTkButton(self.config_add_frame,text="確定", font=customtkinter.CTkFont(family="メイリオ",size=25, weight="bold"),command=self.config_ok_event)
+        self.config_add_ok_button.grid(row=5, column=1,)
+    
+    def config_slider_event(self,value):
+        self.config_add_imp_label.configure(text="重要度("+str(int(value))+")")
 
-    # 前週に戻るボタン
-    def graph_prev_button_event(self):
-        # 日付を減算
-        self.dt_now -= datetime.timedelta(days=7)
-        self.weekly_func()
-    
-    # 日付変更時の表示更新
-    def weekly_func(self):
-        # タスクバーの更新表示
-        self.display_graph()
-        # 更新後の表示日数と、現実の日数が同じならば、未来へいけないように進むボタンを無向化
-        # 更新後の表示日数と、現実の日数が同じゃなければ、タスクのチェックボタンを無向化
-        if self.dt_now.strftime('%Y/%m/%d') == datetime.datetime.now().strftime('%Y/%m/%d'):
-            self.graph_next_button.configure(state="disabled")
-        else:
-            self.graph_next_button.configure(state="normal")
-        # もし更新後の表示日数が開始日なら、それ以前に戻らせないよう、戻るボタンを無効化
-        if (self.dt_now - datetime.timedelta(days=7)).strftime('%Y/%m/%d') not in self.daily_di:
-            self.graph_prev_button.configure(state="disabled")
-        else:
-            self.graph_prev_button.configure(state="normal")
+    # 設定変更が確定したときの関数---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    def config_ok_event(self):
+        # taskが正しく追加されているか判断。正しくなければ追加しせず通知
+        task_name = self.config_add_name_entry.get()
+        if len(task_name.encode('shift_jis')) < 1 or 14 < len(task_name.encode('shift_jis')):
+            self.display_error("1バイト以上14バイト以下のタスク名を設定してください")
+            return
+        if task_name in self.task_di and task_name != self.old_name:
+            self.display_error("すでにその名前は使われています")
+            return
+        weekly_index = []
+        for i in range(7):
+            if self.config_add_weekly_checkbox[i].get() == 1:
+                weekly_index.append(i)
+        if len(weekly_index) == 0:
+            self.display_error("曜日を1つ以上選択してください")
+            return
+        try:
+            h = int(self.config_add_time_combobox[0].get())
+            m = int(self.config_add_time_combobox[1].get())
+            task_time = datetime.time(h,m,0)
+            if datetime.time(0,0,0) >= task_time >= datetime.time(23,59,59):
+                self.display_error("正しい時間を入力してください")
+                return
+        except:
+            self.display_error("正しい時間を入力してください")
+            return
+        # 一度、前のタスク(変更していないかもしれない)をtask_diから削除
+        self.task_di.pop(self.old_name)
+        # task_diに、新しく追加するtaskの情報を格納
+        self.task_di[task_name] = {}
+        dt_now = datetime.datetime.now()
+        self.task_di[task_name]["date"] = dt_now.strftime('%Y/%m/%d')
+        self.task_di[task_name]["week"] = weekly_index
+        self.task_di[task_name]["notice_time"] = str(h)+":"+str(m)
+        self.task_di[task_name]["imp"] = int(self.config_add_imp_slider.get())
+        self.task_di[task_name]["tag"] = self.config_add_tag_combobox.get()
+        # 格納したデータをtask.jsonにファイル書き込み
+        self.write_task()
+        # 一度、前のタスク(変更していないかもしれない)のdaily_diから削除
+        self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')].pop(self.old_name)
+        # daily_diにもtask名とfalseを格納
+        if dt_now.weekday() in self.task_di[task_name]["week"]:
+            if datetime.datetime.now().strftime('%Y/%m/%d') not in self.daily_di:
+                self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')] = {}
+            self.daily_di[datetime.datetime.now().strftime('%Y/%m/%d')][task_name] = False
+        # 新しいdaily_diをdaily.jsonに更新
+        self.write_daily()
+        # 必要ならば本日分の通知を行うように設定を行うか確認
+        self.set_task_times()
+        # 画面遷移
+        # タスク追加画面をフレームをすべて削除
+        self.remove_grid()
+        # 日付フレーム(右上)とタスクフレーム(右,右下)の表示
+        self.screen_id = 1
+        self.display_topbar()
+        self.display_sort_menu()
+        self.display_graph_menu()
+        self.display_taskbar()
     
     # ウィンドウリサイズが起きた時にUIを更新する関数---------------------------------------------------------------------------------------------------------------------
     def callback(event,self):
