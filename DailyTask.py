@@ -2,6 +2,7 @@ import customtkinter
 import tkinter
 import datetime
 import os
+import sys
 import json
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -92,7 +93,7 @@ class App(customtkinter.CTk):
             h,m = map(int,self.task_times[key].split(":"))
             task_time = datetime.time(h,m,0)
             if now >= task_time:
-                notification.notify(title = key+"の時間です",message = key+"を実行しましょう",app_name = "DailyTask",timeout = 10)
+                notification.notify(title = key+"の時間です",message = key+"を実行しましょう",app_name = "DailyTask",app_icon="icon.ico",timeout = 10)
                 self.task_times.pop(key)
         self.after(5000,self.is_task_time)
 
@@ -336,7 +337,7 @@ class App(customtkinter.CTk):
                     if self.task_di[name]["tag"] == "生活":
                         self.task_label[i].configure(text_color="green2")
                     elif self.task_di[name]["tag"] == "学校/仕事":
-                        self.task_label[i].configure(text_color="cyan")
+                        self.task_label[i].configure(text_color="DeepSkyBlue3")
                     elif self.task_di[name]["tag"] == "趣味":
                         self.task_label[i].configure(text_color="dark orange")
             for i in range(len(self.now_date_task_di)):
@@ -468,7 +469,7 @@ class App(customtkinter.CTk):
                     if self.task_di[name]["tag"] == "生活":
                         self.task_label[i].configure(text_color="green2")
                     elif self.task_di[name]["tag"] == "学校/仕事":
-                        self.task_label[i].configure(text_color="cyan")
+                        self.task_label[i].configure(text_color="DeepSkyBlue3")
                     elif self.task_di[name]["tag"] == "趣味":
                         self.task_label[i].configure(text_color="dark orange")
             for i in range(len(self.now_date_task_di)):
@@ -885,12 +886,12 @@ class App(customtkinter.CTk):
             , text=name
             , font=customtkinter.CTkFont(family="メイリオ",size=30, weight="bold"))
             for name in self.today_date_task]
-        for i,name in enumerate(self.task_names):
+        for i,name in enumerate(self.today_date_task):
                 if name in self.task_di:
                     if self.task_di[name]["tag"] == "生活":
                         self.remove_task_label[i].configure(text_color="green2")
                     elif self.task_di[name]["tag"] == "学校/仕事":
-                        self.remove_task_label[i].configure(text_color="cyan")
+                        self.remove_task_label[i].configure(text_color="DeepSkyBlue3")
                     elif self.task_di[name]["tag"] == "趣味":
                         self.remove_task_label[i].configure(text_color="dark orange")
         for i in range(len(self.today_date_task)):
@@ -952,7 +953,7 @@ class App(customtkinter.CTk):
                 if self.task_di[name]["tag"] == "生活":
                     self.radiobutton[i].configure(text_color="green2")
                 elif self.task_di[name]["tag"] == "学校/仕事":
-                    self.radiobutton[i].configure(text_color="cyan")
+                    self.radiobutton[i].configure(text_color="DeepSkyBlue3")
                 elif self.task_di[name]["tag"] == "趣味":
                     self.radiobutton[i].configure(text_color="dark orange")
         for i in range(len(self.today_date_task)):
@@ -1109,8 +1110,21 @@ class App(customtkinter.CTk):
             event.display_taskbar()
 
 
+# アイコンファイルの絶対パスを取得する関数
+def get_icon_path(relative_path):
+    try:
+        # 一時フォルダのパスを取得
+        base_path = sys._MEIPASS
+    except Exception:
+        # 一時フォルダパスを取得できない場合は実行階層パスを取得
+        base_path = os.path.abspath(os.path.dirname(sys.argv[0]))
+
+    # アイコンファイルの絶対パスを作成
+    return os.path.join(base_path, relative_path)
+
 if __name__ == "__main__":
     app = App()
+    app.iconbitmap(default=get_icon_path('icon.ico'))
     width = 1100
     height = 580
     # もしウィンドウリサイズが起きたらUIも更新
